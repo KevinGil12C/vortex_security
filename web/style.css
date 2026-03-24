@@ -574,6 +574,27 @@ body {
     gap: 8px;
 }
 
+.panel-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-tactical-icon {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    padding: 0 4px;
+}
+
+.btn-tactical-icon:hover {
+    color: var(--green-neon);
+    transform: scale(1.1);
+}
+
 .panel-body {
     padding: 16px;
     max-height: 500px;
@@ -1082,6 +1103,60 @@ body {
    MODAL / OVERLAY
    ═══════════════════════════════════════════════════════════════ */
 
+.tactical-input {
+    width: 100%;
+    background: rgba(10, 10, 30, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 12px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+}
+
+.tactical-input:focus {
+    outline: none;
+    border-color: var(--green-neon);
+    box-shadow: 0 0 8px rgba(0, 255, 159, 0.2);
+}
+
+.scrollable-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    position: relative;
+}
+
+.scrollable-table-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.scrollable-table-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 2px;
+}
+
+.table-load-more {
+    text-align: center;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-color);
+    margin-top: 5px;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px dashed var(--border-color);
+    width: 100%;
+}
+
+.btn-ghost:hover {
+    color: var(--green-neon);
+    border-color: var(--green-neon);
+    background: rgba(0, 255, 159, 0.05);
+}
+
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1160,6 +1235,59 @@ body {
     font-size: 0.72rem;
     color: var(--green-neon);
     text-align: center;
+}
+
+.master-view-selector {
+    padding: 0 40px;
+    margin-bottom: 20px;
+}
+
+.selector-container {
+    background: rgba(15, 15, 35, 0.8);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.selector-label {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+}
+
+.view-mode-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-mode {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-dim);
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-mode:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.btn-mode.active {
+    background: rgba(0, 255, 159, 0.1);
+    border-color: var(--green-neon);
+    color: var(--green-neon);
+    box-shadow: 0 0 10px rgba(0, 255, 159, 0.2);
 }
 
 /* ════ Notification toast ════ */
@@ -1290,4 +1418,80 @@ body {
 
 .btn-voice-panel:active {
     transform: scale(0.95);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VORTEX Health Monitor & Action Center
+   ═══════════════════════════════════════════════════════════════ */
+
+.health-monitor-bar {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    width: 100%;
+}
+
+.health-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.health-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    font-weight: bold;
+    letter-spacing: 2px;
+    font-family: var(--font-mono);
+}
+
+.health-progress {
+    width: 100px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.hp-fill {
+    height: 100%;
+    background: var(--green-neon);
+    transition: width 1s ease;
+    box-shadow: 0 0 8px var(--green-neon);
+}
+
+.hp-fill.blue {
+    background: var(--blue-electric);
+    box-shadow: 0 0 8px var(--blue-electric);
+}
+
+.health-val {
+    font-size: 0.7rem;
+    color: var(--text-primary);
+    min-width: 35px;
+    font-family: var(--font-mono);
+}
+
+.health-status-text {
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--blue-electric);
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
+    font-weight: bold;
+}
+
+/* Mitigation Buttons */
+.btn-mitigate {
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    background: rgba(255, 51, 102, 0.1);
+    border: 1px solid rgba(255, 51, 102, 0.3);
+    color: var(--red-alert);
+}
+
+.btn-mitigate:hover {
+    background: var(--red-alert);
+    color: white;
 }

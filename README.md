@@ -17,8 +17,15 @@ En el panorama actual de la ciberseguridad, la privacidad y la velocidad de resp
 1. **Privacidad de Datos**: Los analistas suelen temer enviar logs sensibles a APIs externas (OpenAI, etc.). VORTEX usa modelos de lenguaje (LLMs) que corren localmente.
 2. **Fatiga de Alertas**: Filtra el "ruido" de los logs comunes para centrarse en vectores de ataque reales como SQLi, XSS y Brute Force.
 3. **Accesibilidad Táctica**: Un dashboard interactivo con mapas, voz y gráficas de alto rendimiento que permite a cualquier operador entender el estado de seguridad de un vistazo.
+4. **Acceso Remoto**: Capacidad de visualizar el dashboard desde otros dispositivos en la misma red local (modo multijugador táctico).
 
 ---
+
+## 🚀 Innovaciones del Núcleo
+
+- **Selección Automática de Puerto**: Si el puerto predeterminado (8147) está ocupado, VORTEX buscará automáticamente el siguiente puerto libre.
+- **Servidor Multi-Interfaz**: Ahora el sistema escucha en `0.0.0.0`, permitiendo acceso vía IP desde laptops o tablets externas en tu misma red.
+
 
 ## ✨ Características Técnicas Detalladas
 

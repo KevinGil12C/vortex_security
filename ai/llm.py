@@ -152,52 +152,131 @@ class VortexIA:
 
     def _generar_con_llm(self, resumen, amenazas, top_ips, tipos):
         """Genera reporte usando el LLM."""
-        prompt = self._construir_prompt(resumen, amenazas, top_ips, tipos)
-        respuesta = self.generar_texto(prompt, max_tokens=600)
+        # Pre-calcular algunos datos para el prompt (ayuda a la IA a no inventar)
+        total_logs = resumen.get('total_logs', 1) 
+        total_amenazas = resumen.get('total_amenazas', 0)
+        
+        tipos_stats = ""
+        for t in tipos[:3]:
+            porcentaje = (t.get('count', 0) / total_logs) * 100
+            tipos_stats += f"- {t.get('tipo', 'N/A')}: {t.get('count', 0)} incidencias ({porcentaje:.1f}% del total)\n"
+            
+        ip_mas_activa = top_ips[0].get('ip', 'N/A') if top_ips else 'N/A'
+        
+        prompt = self._construir_prompt(resumen, amenazas, top_ips, tipos, tipos_stats, ip_mas_activa)
+        respuesta = self.generar_texto(prompt, max_tokens=700)
 
-        # Debug logs
         if respuesta:
-            print(f"[VORTEX IA] Respuesta LLM generada ({len(respuesta)} caracteres)")
             return {
                 'informe_ejecutivo': respuesta,
                 'generado_por': f'IA Local ({self.modelo_nombre})',
                 'disponible': True
             }
         else:
-            print("[VORTEX IA] Alerta: El LLM devolvió una respuesta vacía o falló. Usando motor de reglas.")
             return self._generar_con_reglas(resumen, amenazas, top_ips, tipos, {})
 
-    def _construir_prompt(self, resumen, amenazas, top_ips, tipos):
+    def generar_texto(self, prompt, max_tokens=600):
+        """Genera texto con el modelo cargado."""
+        if not self.disponible or not self.modelo:
+            print("[VORTEX IA] Error: Modelo no disponible para generar texto")
+            return None
+
+        try:
+            import torch
+            
+            # Asegurar que el modelo esté en modo evaluación
+            self.modelo.eval()
+
+            # Tokenización
+            inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
+            
+            # Mover a device
+            device = next(self.modelo.parameters()).device
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+
+            # Configuración de padding si es necesario
+            if self.tokenizer.pad_token_id is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+
+            print(f"[VORTEX IA] Generando respuesta técnica...")
+
+            with torch.no_grad():
+                outputs = self.modelo.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=0.2, # MUCHO más bajo para evitar alucinaciones (era 0.8)
+                    top_p=0.8,
+                    do_sample=True,
+                    repetition_penalty=1.2, # Subir para evitar bucles
+                    pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id
+                )
+
+            respuesta_bruta = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+            # Limpieza mejorada:
+            if "assistant" in respuesta_bruta:
+                respuesta = respuesta_bruta.split("assistant")[-1].strip()
+            elif "TÁCTICO" in respuesta_bruta:
+                idx = respuesta_bruta.find("TÁCTICO")
+                respuesta = respuesta_bruta[idx:].strip()
+            else:
+                if respuesta_bruta.startswith(prompt[:100]): 
+                    respuesta = respuesta_bruta.replace(prompt, "").strip()
+                else:
+                    respuesta = respuesta_bruta.strip()
+            
+            if len(respuesta) < 20: 
+                return None
+
+            return respuesta
+
+        except Exception as e:
+            print(f"[VORTEX IA] ERROR: {str(e)}")
+            return None
+
+    def _construir_prompt(self, resumen, amenazas, top_ips, tipos, tipos_stats, ip_mas_activa):
         """Construye el prompt en formato ChatML para mejores resultados."""
         amenazas_texto = ""
         for a in amenazas[:5]:
-            amenazas_texto += f"- {a.get('tipo', 'N/A')} desde {a.get('ip', 'N/A')} (score: {a.get('score', 0)})\n"
+            amenazas_texto += f"- {a.get('tipo', 'N/A')} desde {a.get('ip', 'N/A')} (Score: {a.get('score', 0)}, URI: {a.get('uri', 'N/A')})\n"
 
         ips_texto = ""
         for ip in top_ips[:5]:
-            ips_texto += f"- {ip.get('ip', 'N/A')}: {ip.get('count', 0)} peticiones, score: {ip.get('score', 0)}\n"
+            ips_texto += f"- {ip.get('ip', 'N/A')}: {ip.get('count', 0)} solicitudes (Severidad: {ip.get('severidad', 'N/A')})\n"
 
-        # Formato ChatML universal para Qwen/TinyLlama
         prompt = f"""<|im_start|>system
-Eres un analista de ciberseguridad experto. Tu tarea es generar informes ejecutivos profesionales, técnicos y detallados en ESPAÑOL. Proporciona recomendaciones tácticas y una evaluación de riesgo clara.<|im_end|>
+Eres VORTEX AI, un analista de ciberseguridad militar de élite.
+TU MISIÓN: Generar un informe ANALÍTICO, COMPLETO y NUMÉRICO.
+REGLAS CRÍTICAS:
+1. Habla siempre en ESPAÑOL profesional y técnico.
+2. INCLUYE SIEMPRE DATOS NUMÉRICOS, CANTIDADES Y PORCENTAJES.
+3. El informe debe ser exhaustivo y sonar como un reporte de inteligencia real.
+4. No saludes. No des las gracias. Ve directo a los datos.
+5. Firma al final como: "[ PROCESADO POR NÚCLEO NEURAL VORTEX v1.0 ]"<|im_end|>
 <|im_start|>user
-Genera un informe ejecutivo de seguridad en ESPAÑOL basado en estos datos:
+Analiza los datos de rastro de seguridad y genera un reporte detallado:
 
-[DATOS DE ANÁLISIS]
-- Logs analizados: {resumen.get('total_logs', 0)}
-- Amenazas detectadas: {resumen.get('total_amenazas', 0)}
-- Nivel de riesgo: {resumen.get('nivel_riesgo', 'N/A')} (Score: {resumen.get('score_riesgo', 0)}/100)
-- IPs únicas: {resumen.get('ips_unicas', 0)}
-- IPs baneadas: {resumen.get('ips_baneadas', 0)}
+[MÉTRICAS GLOBALES]
+- Volumen Procesado: {resumen.get('total_logs', 0)} registros.
+- Amenazas Reales: {resumen.get('total_amenazas', 0)} ráfagas detectadas.
+- Riesgo Dashboard: {resumen.get('score_riesgo', 0)}/100 (Nivel: {resumen.get('nivel_riesgo', 'N/A')})
+- Exposición de Red: {resumen.get('ips_unicas', 0)} origenes detectados.
 
-[AMENAZAS PRINCIPALES]
+[DISTRIBUCIÓN DE CIBER-ATAQUES]
+{tipos_stats}
+IP más agresiva detectada: {ip_mas_activa}
+
+[DETECCIONES CRÍTICAS]
 {amenazas_texto}
 
-[ATACANTES TOP]
+[VECTORES DE AMENAZA]
 {ips_texto}
 
-Escribe el informe con las secciones: "RESUMEN TÁCTICO", "EVALUACIÓN DE RIESGO" y "RECOMENDACIONES". Debe ser un tono serio y profesional. 
-IMPORTANTE: No menciones que eres un motor de reglas. Al final del informe escribe SIEMPRE esta firma: "[ PROCESADO POR NÚCLEO NEURAL VORTEX v1.0 ]"<|im_end|>
+Escribe el informe siguiendo estrictamente este formato:
+1. RESUMEN TÁCTICO: (Descripción narrativa con cifras clave).
+2. DETALLE ANALÍTICO: (Desglose de porcentajes y análisis del actor más peligroso).
+3. EVALUACIÓN DE RIESGO: (Resumen de impacto según el score de {resumen.get('score_riesgo', 0)}).
+4. RECOMENDACIONES TÁCTICAS: (Mínimo 5 acciones técnicas basadas en los números anteriores).<|im_end|>
 <|im_start|>assistant
 """
         return prompt

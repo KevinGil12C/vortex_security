@@ -13,6 +13,11 @@ const VORTEX = {
     mapaInicializado: false,
     consolaLineas: [],
     maxConsolaLineas: 200,
+    viewMode: 'top', // 'top' por defecto como solicitó el usuario
+    paginacion: {
+        ips: { limite: 20, filtro: '' },
+        uris: { limite: 20, filtro: '' }
+    }
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -37,7 +42,7 @@ async function ejecutarBootSequence() {
 
     for (let i = 0; i < totalSteps; i++) {
         const msg = BOOT_MESSAGES[i];
-        
+
         // Crear línea
         const line = document.createElement('div');
         line.className = 'boot-line';
@@ -128,8 +133,8 @@ function agregarLineaConsola(severity, mensaje) {
     const time = now.toLocaleTimeString('es-MX', { hour12: false });
 
     const severityClass = severity === 'CRITICAL' ? 'critical' :
-                         severity === 'HIGH' ? 'high' :
-                         severity === 'WARNING' ? 'warning' : 'info';
+        severity === 'HIGH' ? 'high' :
+            severity === 'WARNING' ? 'warning' : 'info';
 
     const line = document.createElement('div');
     line.className = 'console-line';
@@ -242,11 +247,7 @@ function inicializarIngesta() {
         ejecutarAnalisis(textarea.value);
     });
 
-    // Generar PDF
-    document.getElementById('btn-generate-pdf').addEventListener('click', generarPDF);
-    
-    // Generar informe IA
-    document.getElementById('btn-generate-ia').addEventListener('click', generarInformeIA);
+
 
     // Abrir PDF
     document.getElementById('btn-open-pdf').addEventListener('click', async () => {
@@ -267,9 +268,9 @@ function inicializarIngesta() {
     document.getElementById('voice-toggle').addEventListener('change', (e) => {
         const estado = VortexVoz.toggle();
         mostrarToast(`Voz ${estado ? 'activada' : 'desactivada'}`, 'info');
-        
+
         // Opcional: sincronizar con backend
-        try { eel.toggle_voz()(); } catch(e) {}
+        try { eel.toggle_voz()(); } catch (e) { }
     });
 
     // Limpiar consola
@@ -288,12 +289,9 @@ function inicializarIngesta() {
         }
     });
 
-    // Reportes IA / Reglas
-    document.getElementById('btn-generate-ia').addEventListener('click', () => generarInformeIA(false));
-    document.getElementById('btn-generate-rules').addEventListener('click', () => generarInformeIA(true));
+    // Reportes IA / Reglas (Movidos a setupExtraListeners)
 
-    // Cargar IA
-    document.getElementById('btn-load-ia').addEventListener('click', cargarModeloIA);
+    // Cargar IA (Movido a setupExtraListeners)
 
     // Configurar botones de voz en contenedores
     document.querySelectorAll('.btn-voice-read').forEach(btn => {
@@ -334,7 +332,7 @@ function cargarLogEjemplo() {
 function generarLogsEjemplo() {
     const now = new Date();
     const fmt = (d) => {
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
     };
 
     const lines = [];
@@ -404,7 +402,7 @@ async function ejecutarAnalisis(textoLogs) {
     // Limpiar resultados previos
     if (document.getElementById('ia-report-content')) document.getElementById('ia-report-content').innerHTML = '';
     if (document.getElementById('perfiles-list')) document.getElementById('perfiles-list').innerHTML = '';
-    
+
     // Resetear contadores visuales (metrics)
     const metrics = ['stat-total-logs', 'stat-amenazas', 'stat-unicas', 'stat-baneadas'];
     metrics.forEach(id => {
@@ -456,6 +454,8 @@ async function ejecutarAnalisis(textoLogs) {
         document.getElementById('btn-generate-ia').disabled = false;
         document.getElementById('btn-generate-rules').disabled = false;
         document.getElementById('btn-open-pdf').disabled = false;
+        document.getElementById('btn-export-csv').disabled = false;
+        document.getElementById('btn-export-json').disabled = false;
 
         mostrarToast('✅ Análisis completado exitosamente', 'success');
         agregarLineaConsola('INFO', `✅ Análisis completo: ${datos.resumen.total_logs} logs, ${datos.resumen.total_amenazas} amenazas`);
@@ -464,7 +464,7 @@ async function ejecutarAnalisis(textoLogs) {
         VortexVoz.eventoResumenFinal(datos.resumen);
 
         // Actualizar footer
-        document.getElementById('footer-status').textContent = 
+        document.getElementById('footer-status').textContent =
             `Estado: ${datos.resumen.total_logs} logs | ${datos.resumen.total_amenazas} amenazas | Riesgo: ${datos.resumen.nivel_riesgo}`;
 
     } catch (e) {
@@ -489,36 +489,50 @@ function resetearAnalisis() {
 // ══════════════════════════════════════════════════════════════
 
 function renderizarDashboard(datos) {
+    if (!datos) return;
+    VORTEX.datos = datos;
     const resumen = datos.resumen || {};
 
     // Mostrar secciones
-    ['metrics-section', 'content-section', 'charts-section', 'ia-section', 'attackers-section'].forEach(id => {
-        document.getElementById(id).style.display = '';
+    ['view-mode-section', 'metrics-section', 'content-section', 'charts-section', 'ia-section', 'attackers-section'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = '';
     });
 
-    // Inicializar mapa ahora que su contenedor es visible
-    if (!VORTEX.mapaInicializado && typeof inicializarMapa === 'function') {
-        setTimeout(() => {
-            inicializarMapa();
-            VORTEX.mapaInicializado = true;
-        }, 200);
+    // ── Reseteo de límites si estamos en modo Top ──
+    if (VORTEX.viewMode === 'top') {
+        VORTEX.paginacion.ips.limite = 20;
+        VORTEX.paginacion.uris.limite = 20;
     }
 
-    // ── Métricas ──
-    animarNumero('m-total-logs', resumen.total_logs || 0);
-    animarNumero('m-amenazas', resumen.total_amenazas || 0);
+    // ── Métricas Sincronizadas por Modo ──
+    if (VORTEX.viewMode === 'top') {
+        const amenazasFiltradas = (datos.amenazas || []).slice(0, 20);
+        const ipsFiltradas = (datos.top_ips || []).slice(0, 20);
+        const urisFiltradas = (datos.top_uris || []).slice(0, 20);
+
+        animarNumero('m-total-logs', Math.min(resumen.total_logs || 0, 500)); // Cap simbólico
+        animarNumero('m-amenazas', amenazasFiltradas.length);
+        animarNumero('m-ips', ipsFiltradas.length);
+        animarNumero('m-baneadas', ipsFiltradas.filter(i => i.baneada).length);
+
+        const anomaliasFiltradas = (datos.anomalias?.puntos || []).slice(0, 10);
+        animarNumero('m-anomalias', anomaliasFiltradas.length);
+    } else {
+        animarNumero('m-total-logs', resumen.total_logs || 0);
+        animarNumero('m-amenazas', resumen.total_amenazas || 0);
+        animarNumero('m-ips', resumen.ips_unicas || 0);
+        animarNumero('m-baneadas', resumen.ips_baneadas || 0);
+
+        const anomalias = datos.anomalias || {};
+        animarNumero('m-anomalias', anomalias.total_anomalias || 0);
+    }
+
     animarNumero('m-score', resumen.score_riesgo || 0);
-    animarNumero('m-ips', resumen.ips_unicas || 0);
-    animarNumero('m-baneadas', resumen.ips_baneadas || 0);
 
-    const anomalias = datos.anomalias || {};
-    animarNumero('m-anomalias', anomalias.total_anomalias || 0);
-
-    // Nivel de riesgo
     const nivel = resumen.nivel_riesgo || 'BAJO';
     document.getElementById('m-nivel').textContent = `NIVEL: ${nivel}`;
 
-    // ── Score CSS ──
     const scoreEl = document.getElementById('m-score');
     const score = resumen.score_riesgo || 0;
     if (score >= 60) {
@@ -532,34 +546,38 @@ function renderizarDashboard(datos) {
     // ── Indicador de riesgo ──
     renderizarRiesgo(resumen.score_riesgo || 0, nivel);
 
-    // ── Top IPs ──
-    renderizarTablaIPs(datos.top_ips || []);
-
-    // ── Tipos de ataque ──
-    renderizarTablaTipos(datos.tipos_ataque || []);
-
-    // ── Top URIs ──
-    renderizarTablaURIs(datos.top_uris || []);
-
-    // ── Perfiles atacantes ──
-    renderizarPerfilesAtacantes(datos.perfiles_atacantes || []);
+    // ── Renderizado de Tablas ──
+    renderizarTablas(datos);
 
     // ── Gráficas ──
     if (typeof renderizarGraficas === 'function') {
         renderizarGraficas(datos);
     }
 
-    // ── Mapa ── (delay extra para asegurar que Leaflet ya recalculó)
+    // ── Mapa: Filtrar puntos si es modo Top ──
     if (datos.geo_data && typeof actualizarMapa === 'function') {
-        setTimeout(() => actualizarMapa(datos.geo_data), 800);
+        let geoData = { ...datos.geo_data };
+        if (VORTEX.viewMode === 'top' && datos.geo_data.puntos) {
+            geoData.puntos = datos.geo_data.puntos.slice(0, 50);
+        }
+        setTimeout(() => actualizarMapa(geoData), 500);
     }
 
-    // ── Consola: mostrar amenazas top ──
-    const amenazasTop = (datos.amenazas || []).slice(0, 10);
-    amenazasTop.forEach(a => {
+    // ── Consola: limitar mensajes según modo ──
+    const limiteConsola = VORTEX.viewMode === 'top' ? 10 : 100;
+    const amenazas = (datos.amenazas || []).slice(0, limiteConsola);
+    amenazas.forEach(a => {
         const sev = a.severidad || 'INFO';
         agregarLineaConsola(sev, `${a.tipo} | IP: ${a.ip} | URI: ${a.uri} | Score: ${a.score}`);
     });
+}
+
+function renderizarTablas(analisis) {
+    if (!analisis) return;
+    renderizarTablaIPs(analisis.top_ips || []);
+    renderizarTablaURIs(analisis.top_uris || []);
+    renderizarTablaTipos(analisis.tipos_ataque || []);
+    renderizarPerfilesAtacantes(analisis.perfiles_atacantes || []);
 }
 
 function animarNumero(elementId, targetValue) {
@@ -600,11 +618,14 @@ function renderizarRiesgo(score, nivel) {
     labelEl.className = `risk-label ${riskClass}`;
 }
 
-function renderizarTablaIPs(topIps) {
-    const tbody = document.querySelector('#table-top-ips tbody');
-    tbody.innerHTML = '';
+function renderizarTablaIPs(ips) {
+    const tbody = document.querySelector('#table-ips tbody');
+    const filtro = VORTEX.paginacion.ips.filtro.toLowerCase();
+    const ipsFiltradas = ips.filter(ip => ip.ip.toLowerCase().includes(filtro));
+    const limite = VORTEX.viewMode === 'full' ? 5000 : VORTEX.paginacion.ips.limite;
 
-    topIps.slice(0, 15).forEach(ip => {
+    tbody.innerHTML = '';
+    ipsFiltradas.slice(0, limite).forEach(ip => {
         const tr = document.createElement('tr');
         const estado = ip.baneada ? '<span class="badge badge-banned">BAN</span>' : obtenerBadgeSeveridad(ip.severidad);
         tr.innerHTML = `
@@ -615,6 +636,8 @@ function renderizarTablaIPs(topIps) {
         `;
         tbody.appendChild(tr);
     });
+
+    document.getElementById('btn-load-more-ips').style.display = ipsFiltradas.length > limite ? 'block' : 'none';
 }
 
 function renderizarTablaTipos(tipos) {
@@ -632,25 +655,35 @@ function renderizarTablaTipos(tipos) {
 }
 
 function renderizarTablaURIs(uris) {
-    const tbody = document.querySelector('#table-top-uris tbody');
-    tbody.innerHTML = '';
+    const tbody = document.querySelector('#table-uris tbody');
+    const filtro = VORTEX.paginacion.uris.filtro.toLowerCase();
+    const urisFiltradas = uris.filter(u => u.uri.toLowerCase().includes(filtro));
+    const limite = VORTEX.viewMode === 'full' ? 5000 : VORTEX.paginacion.uris.limite;
 
-    uris.slice(0, 15).forEach(uri => {
+    tbody.innerHTML = '';
+    urisFiltradas.slice(0, limite).forEach(u => {
         const tr = document.createElement('tr');
-        const uriText = uri.uri.length > 40 ? uri.uri.substring(0, 37) + '...' : uri.uri;
+        const uriText = u.uri.length > 40 ? u.uri.substring(0, 37) + '...' : u.uri; // Reverted to original logic
         tr.innerHTML = `
-            <td title="${escapeHtml(uri.uri)}">${escapeHtml(uriText)}</td>
-            <td>${uri.count}</td>
+            <td title="${escapeHtml(u.uri)}">${escapeHtml(uriText)}</td>
+            <td>${u.count}</td>
         `;
         tbody.appendChild(tr);
     });
+
+    document.getElementById('btn-load-more-uris').style.display = urisFiltradas.length > limite ? 'block' : 'none';
 }
 
 function renderizarPerfilesAtacantes(perfiles) {
     const tbody = document.querySelector('#table-attackers tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
-    perfiles.forEach(p => {
+    // Si es top mostramos 10, si es full mostramos más
+    const limite = VORTEX.viewMode === 'full' ? 500 : 10;
+    const filtrados = (perfiles || []).slice(0, limite);
+
+    filtrados.forEach(p => {
         const tr = document.createElement('tr');
         const estado = p.baneada ? '<span class="badge badge-banned">BANEADA</span>' : '<span class="badge badge-high">ACTIVA</span>';
         tr.innerHTML = `
@@ -671,28 +704,69 @@ function renderizarPerfilesAtacantes(perfiles) {
 
 async function generarPDF() {
     const btn = document.getElementById('btn-generate-pdf');
+    const labelOriginal = btn.innerHTML;
+
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Generando...';
-    agregarLineaConsola('INFO', '📄 Generando reporte PDF...');
+    btn.innerHTML = '<span class="spinner"></span> Procesando...';
+    agregarLineaConsola('INFO', '📄 Iniciando motor de generación PDF...');
 
     try {
-        const result = await eel.generar_reporte_pdf()();
+        let mapaBase64 = null;
+        try {
+            const mapContainer = document.getElementById('god-eye-map');
+            if (mapContainer && typeof html2canvas !== 'undefined') {
+                const canvas = await html2canvas(mapContainer, { useCORS: true, logging: false });
+                mapaBase64 = canvas.toDataURL('image/png');
+                agregarLineaConsola('INFO', '📸 Mapa táctico capturado exitosamente.');
+            }
+        } catch (err) {
+            console.warn("No se pudo capturar el mapa:", err);
+            agregarLineaConsola('WARNING', 'No se pudo capturar el mapa visual, usando por defecto.');
+        }
+
+        let graficosBase64 = null;
+        try {
+            const capturarConFondo = (id, color = '#050510') => {
+                const c = document.getElementById(id);
+                if (!c) return null;
+                const tc = document.createElement('canvas');
+                tc.width = c.width; tc.height = c.height;
+                const ctx = tc.getContext('2d');
+                ctx.fillStyle = color; ctx.fillRect(0, 0, tc.width, tc.height);
+                ctx.drawImage(c, 0, 0);
+                return tc.toDataURL('image/png');
+            };
+            graficosBase64 = {
+                ataques: capturarConFondo('chart-attack-types'),
+                timeline: capturarConFondo('chart-timeline'),
+                os: capturarConFondo('chart-os'),
+                browsers: capturarConFondo('chart-browsers')
+            };
+            agregarLineaConsola('INFO', '📊 Gráficos visuales capturados exitosamente.');
+        } catch (err) {
+            console.warn("No se pudo capturar gráficos:", err);
+        }
+
+        const result = await eel.generar_reporte_pdf(mapaBase64, graficosBase64)();
         const data = JSON.parse(result);
 
         if (data.exito) {
-            mostrarToast(`✅ PDF generado: ${data.nombre}`, 'success');
-            agregarLineaConsola('INFO', `✅ Reporte PDF generado: ${data.nombre}`);
+            mostrarToast(`✅ ${data.msg || 'Reporte guardado'}`, 'success');
+            agregarLineaConsola('INFO', `✅ Reporte exportado: ${data.archivo}`);
             VortexVoz.eventoReporteGenerado();
+        } else if (data.cancelado) {
+            mostrarToast('Exportación cancelada por el operador', 'info');
         } else {
-            mostrarToast(`Error: ${data.error}`, 'error');
-            agregarLineaConsola('CRITICAL', `Error PDF: ${data.error}`);
+            const errorMsg = data.error || 'Error desconocido';
+            mostrarToast(`Error: ${errorMsg}`, 'error');
+            agregarLineaConsola('CRITICAL', `Error PDF: ${errorMsg}`);
         }
     } catch (e) {
-        mostrarToast(`Error: ${e.message}`, 'error');
+        mostrarToast(`Error de comunicación: ${e.message}`, 'error');
     }
 
     btn.disabled = false;
-    btn.innerHTML = '📄 Generar Reporte PDF';
+    btn.innerHTML = labelOriginal;
 }
 
 async function generarInformeIA(usarReglas = false) {
@@ -701,7 +775,7 @@ async function generarInformeIA(usarReglas = false) {
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Generando...';
-    
+
     if (usarReglas) {
         agregarLineaConsola('INFO', '📋 Generando informe rápido basado en reglas...');
     } else {
@@ -714,21 +788,22 @@ async function generarInformeIA(usarReglas = false) {
 
         if (data.informe_ejecutivo) {
             document.getElementById('ia-report-content').textContent = data.informe_ejecutivo;
+            document.getElementById('btn-voice-briefing').disabled = false;
             mostrarToast(`✅ Informe IA generado (${data.generado_por})`, 'success');
             agregarLineaConsola('INFO', `✅ Informe IA generado por: ${data.generado_por}`);
-
-            // Scroll al informe
             document.getElementById('ia-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else if (data.error) {
             mostrarToast(`Error: ${data.error}`, 'error');
+            agregarLineaConsola('CRITICAL', `Error IA: ${data.error}`);
         }
     } catch (e) {
         mostrarToast(`Error: ${e.message}`, 'error');
+        agregarLineaConsola('CRITICAL', `Error de comunicación IA: ${e.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = labelOriginal;
+        actualizarEstadoIA();
     }
-
-    btn.disabled = false;
-    btn.innerHTML = labelOriginal;
-    actualizarEstadoIA();
 }
 
 /**
@@ -738,7 +813,7 @@ async function actualizarEstadoIA() {
     try {
         const result = await eel.obtener_estado()();
         const estado = JSON.parse(result);
-        
+
         const dot = document.getElementById('ia-status-dot');
         const msg = document.getElementById('ia-status-msg');
         const btn = document.getElementById('btn-load-ia');
@@ -769,7 +844,7 @@ async function cargarModeloIA() {
     btn.textContent = 'Cargando...';
     dot.className = 'ia-status-dot loading';
     msg.textContent = 'IA LLM: Cargando modelo (1GB+)...';
-    
+
     agregarLineaConsola('INFO', '🤖 Iniciando descarga/carga de modelo IA local. Esto puede tardar varios minutos...');
     mostrarToast('Iniciando carga de modelo IA (1GB+). Por favor espera.', 'info');
 
@@ -814,10 +889,10 @@ const VortexVoz = {
             const voces = speechSynthesis.getVoices();
             // Buscar voz en español (preferir es-MX, luego es-ES, luego cualquier es-)
             this.vozEspanol = voces.find(v => v.lang === 'es-MX') ||
-                              voces.find(v => v.lang === 'es-ES') ||
-                              voces.find(v => v.lang.startsWith('es')) ||
-                              voces.find(v => v.lang === 'es') ||
-                              null;
+                voces.find(v => v.lang === 'es-ES') ||
+                voces.find(v => v.lang.startsWith('es')) ||
+                voces.find(v => v.lang === 'es') ||
+                null;
 
             if (this.vozEspanol) {
                 console.log(`[VORTEX VOZ] Voz seleccionada: ${this.vozEspanol.name} (${this.vozEspanol.lang})`);
@@ -844,7 +919,7 @@ const VortexVoz = {
 
         const limpio = this._limpiarTexto(texto);
         const utterance = new SpeechSynthesisUtterance(limpio);
-        
+
         utterance.lang = 'es-MX';
         utterance.rate = 1.05;
         utterance.pitch = 0.95;
@@ -938,8 +1013,79 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarIngesta();
     actualizarEstadoIA();
 
-    // Configurar botones de voz en contenedores
-    document.body.addEventListener('click', (e) => {
+    // Filtros y Paginación
+    document.getElementById('search-ips')?.addEventListener('input', (e) => {
+        VORTEX.paginacion.ips.filtro = e.target.value;
+        VORTEX.paginacion.ips.limite = 20;
+        if (VORTEX.datos) renderizarTablaIPs(VORTEX.datos.top_ips);
+    });
+
+    document.getElementById('search-uris')?.addEventListener('input', (e) => {
+        VORTEX.paginacion.uris.filtro = e.target.value;
+        VORTEX.paginacion.uris.limite = 20;
+        if (VORTEX.datos) renderizarTablaURIs(VORTEX.datos.top_uris);
+    });
+
+    document.getElementById('btn-load-more-ips')?.addEventListener('click', () => {
+        VORTEX.paginacion.ips.limite += 50;
+        if (VORTEX.datos) renderizarTablaIPs(VORTEX.datos.top_ips);
+    });
+
+    document.getElementById('btn-load-more-uris')?.addEventListener('click', () => {
+        VORTEX.paginacion.uris.limite += 50;
+        if (VORTEX.datos) renderizarTablaURIs(VORTEX.datos.top_uris);
+    });
+
+    // Botones de Modo de Vista Global
+    document.getElementById('btn-view-mode-top')?.addEventListener('click', () => {
+        VORTEX.viewMode = 'top';
+        VORTEX.paginacion.ips.limite = 20;
+        VORTEX.paginacion.uris.limite = 20;
+        VORTEX.paginacion.ips.filtro = '';
+        VORTEX.paginacion.uris.filtro = '';
+
+        if (document.getElementById('search-ips')) document.getElementById('search-ips').value = '';
+        if (document.getElementById('search-uris')) document.getElementById('search-uris').value = '';
+
+        document.getElementById('btn-view-mode-top').classList.add('active');
+        document.getElementById('btn-view-mode-full').classList.remove('active');
+
+        // Renderizar TODO de nuevo
+        if (VORTEX.datos) renderizarDashboard(VORTEX.datos);
+        mostrarToast('💎 Análisis Filtrado: Top 20 Críticos', 'info');
+    });
+
+    document.getElementById('btn-view-mode-full')?.addEventListener('click', () => {
+        VORTEX.viewMode = 'full';
+        document.getElementById('btn-view-mode-top').classList.remove('active');
+        document.getElementById('btn-view-mode-full').classList.add('active');
+
+        if (VORTEX.datos) renderizarDashboard(VORTEX.datos);
+        mostrarToast('📑 Auditoría Completa: 100% Data Visible', 'warning');
+    });
+
+    // Acciones de Inteligencia y PDF
+    document.getElementById('btn-generate-pdf')?.addEventListener('click', generarPDF);
+    document.getElementById('btn-generate-ia')?.addEventListener('click', () => generarInformeIA(false));
+    document.getElementById('btn-generate-rules')?.addEventListener('click', () => generarInformeIA(true));
+    document.getElementById('btn-load-ia')?.addEventListener('click', cargarModeloIA);
+    // btn-open-pdf manejado en setupEventHandlers
+
+    document.getElementById('btn-voice-briefing')?.addEventListener('click', () => {
+        const texto = document.getElementById('ia-report-content').textContent;
+        if (texto && texto.length > 20) {
+            VortexVoz.hablar("Iniciando briefing táctico del núcleo neuronal en curso.");
+            setTimeout(() => VortexVoz.hablar(texto), 2000);
+        } else {
+            mostrarToast('Debe generar un informe de IA primero', 'warning');
+        }
+    });
+
+    document.getElementById('btn-export-csv')?.addEventListener('click', () => exportarForense('csv'));
+    document.getElementById('btn-export-json')?.addEventListener('click', () => exportarForense('json'));
+
+    // Delegación de eventos para botones de voz en los paneles
+    document.addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-voice-panel');
         if (btn) {
             const targetId = btn.getAttribute('data-target');
@@ -947,8 +1093,39 @@ document.addEventListener('DOMContentLoaded', () => {
             if (target) {
                 const texto = target.innerText || target.textContent;
                 VortexVoz.hablar(texto);
-                mostrarToast('🔊 Leyendo sección...', 'info');
             }
         }
     });
+
+    // Iniciar monitoreo de salud
+    setInterval(actualizarSaludSistema, 3000);
 });
+
+async function actualizarSaludSistema() {
+    try {
+        const result = await eel.obtener_salud_sistema()();
+        const data = JSON.parse(result);
+        if (data.exito) {
+            document.getElementById('hp-cpu').style.width = `${data.cpu}%`;
+            document.getElementById('hp-cpu-val').textContent = `${Math.round(data.cpu)}%`;
+            document.getElementById('hp-ram').style.width = `${data.ram}%`;
+            document.getElementById('hp-ram-val').textContent = `${Math.round(data.ram)}%`;
+            document.getElementById('hp-neural').textContent = data.ia_status;
+        }
+    } catch (e) { }
+}
+
+async function exportarForense(formato) {
+    mostrarToast(`Generando exportación ${formato.toUpperCase()}...`, 'info');
+    try {
+        const result = await eel.exportar_forense(formato)();
+        const data = JSON.parse(result);
+        if (data.exito) {
+            mostrarToast(`✅ Exportación exitosa: ${data.path}`, 'success');
+        } else if (!data.cancelado) {
+            mostrarToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (e) {
+        mostrarToast('Error en exportación', 'error');
+    }
+}

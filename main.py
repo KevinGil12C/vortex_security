@@ -11,6 +11,9 @@ import sys
 import json
 import eel
 import threading
+import psutil
+import tkinter as tk
+from tkinter import filedialog
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -19,7 +22,7 @@ load_dotenv()
 
 # Configuración desde .env
 VOICE_ENABLED = os.getenv('VOICE_ENABLED', 'true').lower() == 'true'
-MODEL_NAME = os.getenv('MODEL_NAME', 'Qwen/Qwen1.5-0.5B-Chat')
+MODEL_NAME = os.getenv('MODEL_NAME', 'Qwen/Qwen2-1.5B-Instruct')
 LOG_PATH = os.getenv('LOG_PATH', 'writable/logs/security_audit.log')
 
 # Inicializar Eel
@@ -30,7 +33,7 @@ eel.init('web')
 # ═══════════════════════════════════════════════════════════════
 
 estado_global = {
-    'analisis': None,
+    'analisis': {}, 
     'logs_cargados': [],
     'voz_habilitada': VOICE_ENABLED,
     'ia_cargada': False,
@@ -149,31 +152,64 @@ def analizar_archivo(ruta_archivo):
 
 
 @eel.expose
-def generar_reporte_pdf():
-    """Genera un reporte PDF del último análisis."""
+def generar_reporte_pdf(mapa_b64=None, graficos_b64=None):
+    """Genera un reporte PDF con diálogo de guardado."""
     if not estado_global['analisis']:
-        return json.dumps({'error': 'No hay análisis disponible. Ejecuta un análisis primero.'}, ensure_ascii=False)
+        return json.dumps({'error': 'No hay análisis para reportar.'}, ensure_ascii=False)
 
     try:
         from reports.pdf_generator import generar_reporte_pdf as _gen_pdf
-
         analisis = estado_global['analisis']
 
-        # Agregar informe IA si está disponible
-        ia = obtener_ia()
-        if not analisis.get('informe_ia'):
-            informe = ia.generar_reporte_ia(analisis)
-            analisis['informe_ia'] = informe
+        # Diálogo de guardado
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("Reporte PDF", "*.pdf")],
+            initialfile=f"VORTEX_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+            title="Guardar Reporte de Inteligencia"
+        )
+        root.destroy()
 
-        resultado = _gen_pdf(analisis)
+        if not file_path:
+            return json.dumps({'cancelado': True})
 
-        # Voz
+        # Generar reporte base
+        resultado = _gen_pdf(analisis, mapa_b64=mapa_b64, graficos_b64=graficos_b64)
+        
         if resultado.get('exito'):
+            # Copiar el archivo generado a la ruta elegida por el usuario
+            import shutil
+            ruta_original = resultado.get('ruta')
+            if ruta_original and os.path.exists(ruta_original):
+                shutil.copy2(ruta_original, file_path)
+                
+                # Auto-Limpieza de archivos temporales (Capturas y PDF base)
+                try:
+                    rep_dir = str(os.path.dirname(ruta_original))
+                    for fn in os.listdir(rep_dir):
+                        file_abs = os.path.join(rep_dir, fn)
+                        if fn.startswith('vortex_chart_') or fn == 'vortex_map.png':
+                            os.remove(file_abs)
+                        elif fn == os.path.basename(ruta_original):
+                            os.remove(file_abs)
+                except Exception as e:
+                    print(f"[VORTEX] Info: Cleanup secundario parcial - {str(e)}")
+            
             obtener_voz().evento_reporte_generado()
-
+            return json.dumps({
+                'exito': True, 
+                'archivo': os.path.basename(file_path),
+                'path': file_path,
+                'msg': f'Reporte guardado en: {file_path}'
+            }, ensure_ascii=False)
+        
         return json.dumps(resultado, ensure_ascii=False)
 
     except Exception as e:
+        return json.dumps({'error': str(e)}, ensure_ascii=False)
         return json.dumps({'error': str(e)}, ensure_ascii=False)
 
 
@@ -240,6 +276,66 @@ def obtener_estado():
         'analizando': estado_global['analizando'],
         'log_path': LOG_PATH,
     }, ensure_ascii=False)
+
+
+@eel.expose
+def obtener_salud_sistema():
+    """Retorna el uso de CPU y RAM del sistema."""
+    try:
+        cpu = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory().percent
+        res_ia = "ACTIVO" if estado_global['ia_cargada'] else "MODO LEAN"
+        
+        return json.dumps({
+            'cpu': cpu,
+            'ram': ram,
+            'modelo': MODEL_NAME,
+            'ia_status': res_ia,
+            'exito': True
+        })
+    except:
+        return json.dumps({'exito': False})
+
+
+
+@eel.expose
+def exportar_forense(formato='csv'):
+    """Exporta el análisis actual a CSV o JSON eligiendo ruta."""
+    if not estado_global['analisis']:
+        return json.dumps({'error': 'No hay datos para exportar.'})
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        
+        ext = '.csv' if formato == 'csv' else '.json'
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=ext,
+            filetypes=[("Archivos Forenses", f"*{ext}")],
+            title=f"Exportar Auditoría ({formato.upper()})"
+        )
+        root.destroy()
+
+        if not file_path:
+            return json.dumps({'exito': False, 'cancelado': True})
+
+        if formato == 'json':
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(estado_global['analisis'], f, indent=4, ensure_ascii=False)
+        else:
+            # Exportación CSV básica (IPs atacantes)
+            import csv
+            ips = estado_global['analisis'].get('top_ips', [])
+            keys = ips[0].keys() if ips else []
+            with open(file_path, 'w', newline='', encoding='utf-8') as f:
+                dict_writer = csv.DictWriter(f, fieldnames=keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(ips)
+
+        return json.dumps({'exito': True, 'path': file_path})
+    except Exception as e:
+        return json.dumps({'exito': False, 'error': str(e)})
 
 
 @eel.expose
@@ -346,39 +442,54 @@ def main():
         except Exception as e:
             print(f"[!] Error al iniciar sistema de voz: {e}")
 
+    def encontrar_puerto_libre(puerto_inicial):
+        """Busca el primer puerto disponible a partir del inicial."""
+        import socket
+        puerto = puerto_inicial
+        while puerto < puerto_inicial + 10:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                if s.connect_ex(('localhost', puerto)) != 0:
+                    return puerto
+                puerto += 1
+        return puerto_inicial
+
+    # Determinar IP local para acceso externo
+    def obtener_ip_local():
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except:
+            return "localhost"
+
+    puerto_vortex = encontrar_puerto_libre(8147)
+    ip_local = obtener_ip_local()
+
     print("[+] Iniciando interfaz web...")
+    print(f"[+] Acceso LOCAL: http://localhost:{puerto_vortex}")
+    print(f"[+] Acceso RED:   http://{ip_local}:{puerto_vortex}")
     print("[+] Se abrirá el navegador automáticamente...")
     print("[+] Para cerrar: Ctrl+C o usa stop.bat")
     print()
 
+    # Opciones comunes de inicio
+    opciones_eel = {
+        'size': (1400, 900),
+        'port': puerto_vortex,
+        'host': ip_local, # Usar la IP real detectada para permitir acceso externo y evitar ERR_ADDRESS_INVALID
+        'cmdline_args': ['--disable-features=TranslateUI']
+    }
+
     try:
-        eel.start(
-            'index.html',
-            size=(1400, 900),
-            port=8147,
-            host='localhost',
-            mode='chrome',
-            cmdline_args=['--disable-features=TranslateUI']
-        )
+        eel.start('index.html', mode='chrome', **opciones_eel)
     except EnvironmentError:
-        # Si Chrome no está disponible, intentar con Edge
         try:
-            eel.start(
-                'index.html',
-                size=(1400, 900),
-                port=8147,
-                host='localhost',
-                mode='edge'
-            )
+            eel.start('index.html', mode='edge', **opciones_eel)
         except Exception:
-            # Fallback: abrir en navegador por defecto
-            eel.start(
-                'index.html',
-                size=(1400, 900),
-                port=8147,
-                host='localhost',
-                mode='default'
-            )
+            eel.start('index.html', mode='default', **opciones_eel)
 
 
 if __name__ == '__main__':

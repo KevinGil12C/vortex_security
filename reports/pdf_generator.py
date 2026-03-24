@@ -8,295 +8,205 @@ import io
 from datetime import datetime
 
 
-def generar_reporte_pdf(analisis, ruta_salida=None):
-    """
-    Genera un reporte PDF profesional con los resultados del análisis.
-    """
+def generar_reporte_pdf(analisis, ruta_salida=None, mapa_b64=None, graficos_b64=None):
+    """Genera una Auditoría Maestra VORTEX (Versión Printable/Blanca)."""
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import letter
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch, cm
+        from reportlab.lib.units import inch
         from reportlab.platypus import (
             SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-            PageBreak, HRFlowable
+            PageBreak, HRFlowable, Image
         )
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        from reportlab.graphics.shapes import Drawing, Rect
+        from reportlab.graphics.charts.barcharts import VerticalBarChart
+        from reportlab.graphics.charts.piecharts import Pie
+        from reportlab.graphics.charts.textlabels import Label
+        import base64
     except ImportError:
-        return {'error': 'reportlab no está instalado. Ejecutar: pip install reportlab', 'ruta': ''}
+        return {'error': 'reportlab no está instalado.', 'ruta': ''}
 
     if not ruta_salida:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        ruta_salida = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports', f'VORTEX_Report_{timestamp}.pdf')
+        ruta_salida = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports', f'VORTEX_Audit_Printable_{timestamp}.pdf')
 
-    # Crear directorio si no existe
     os.makedirs(os.path.dirname(ruta_salida), exist_ok=True)
+    logo_path = os.path.join(os.path.dirname(__file__), 'vortex_logo.png')
+    map_path = os.path.join(os.path.dirname(__file__), 'vortex_map.png')
+    
+    if mapa_b64:
+        try:
+            map_data = base64.b64decode(mapa_b64.split(',')[1] if ',' in mapa_b64 else mapa_b64)
+            with open(map_path, 'wb') as f:
+                f.write(map_data)
+        except Exception as e:
+            pass
 
-    # ═══════════════════════════════════════════════════
-    # CONFIGURACIÓN DEL DOCUMENTO
-    # ═══════════════════════════════════════════════════
-
-    doc = SimpleDocTemplate(
-        ruta_salida,
-        pagesize=letter,
-        rightMargin=50,
-        leftMargin=50,
-        topMargin=50,
-        bottomMargin=50
-    )
-
-    # Colores VORTEX
+    # Paleta Cyberpunk (Printable)
+    VORTEX_BG = colors.white
+    VORTEX_BLUE = colors.HexColor('#0088cc')  
+    VORTEX_GREEN = colors.HexColor('#00aa88') 
+    VORTEX_RED = colors.HexColor('#cc0033')   
+    VORTEX_TEXT = colors.black
     VORTEX_DARK = colors.HexColor('#0a0a1a')
-    VORTEX_GREEN = colors.HexColor('#00ff9f')
-    VORTEX_BLUE = colors.HexColor('#00d4ff')
-    VORTEX_RED = colors.HexColor('#ff3366')
-    VORTEX_YELLOW = colors.HexColor('#ffaa00')
-    VORTEX_GRAY = colors.HexColor('#2a2a3a')
-    VORTEX_LIGHT = colors.HexColor('#e0e0e0')
 
-    # Estilos
+    doc = SimpleDocTemplate(ruta_salida, pagesize=letter, rightMargin=35, leftMargin=35, topMargin=0.7*inch, bottomMargin=0.5*inch)
+
+    def draw_dark_theme(canvas, doc):
+        canvas.saveState()
+        # Branding Header
+        if os.path.exists(logo_path):
+            canvas.drawImage(logo_path, 35, 742, width=32, height=32, mask='auto', preserveAspectRatio=True)
+        canvas.setStrokeColor(VORTEX_BLUE); canvas.setLineWidth(2)
+        canvas.line(35, 735, 575, 735)
+        
+        canvas.setFont('Helvetica-Bold', 11); canvas.setFillColor(VORTEX_DARK)
+        canvas.drawString(75, 755, "VORTEX SECURITY - TACTICAL COMMAND REPORT")
+        canvas.setFont('Helvetica', 7); canvas.setFillColor(colors.grey)
+        canvas.drawString(75, 742, f"AUDITORÍA LVL 5 | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        
+        # Footer
+        canvas.setFont('Helvetica', 7); canvas.setFillColor(colors.grey)
+        canvas.drawString(35, 25, "PROCESADO POR VORTEX NEURAL | IMPRESIÓN FORENSE")
+        canvas.drawRightString(575, 25, f"PÁGINA {doc.page} | ENLACE ENCRIPTADO")
+        canvas.restoreState()
+
     styles = getSampleStyleSheet()
-
-    titulo_style = ParagraphStyle(
-        'VortexTitulo',
-        parent=styles['Title'],
-        fontName='Helvetica-Bold',
-        fontSize=22,
-        textColor=VORTEX_DARK,
-        spaceAfter=20,
-        alignment=TA_CENTER
-    )
-
-    subtitulo_style = ParagraphStyle(
-        'VortexSubtitulo',
-        parent=styles['Heading2'],
-        fontName='Helvetica-Bold',
-        fontSize=14,
-        textColor=VORTEX_DARK,
-        spaceBefore=15,
-        spaceAfter=8,
-        borderWidth=1,
-        borderColor=VORTEX_GREEN,
-        borderPadding=5,
-    )
-
-    normal_style = ParagraphStyle(
-        'VortexNormal',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=10,
-        textColor=colors.HexColor('#333333'),
-        spaceAfter=6,
-    )
-
-    alerta_style = ParagraphStyle(
-        'VortexAlerta',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=11,
-        textColor=VORTEX_RED,
-        spaceAfter=6,
-    )
-
-    # ═══════════════════════════════════════════════════
-    # CONSTRUIR CONTENIDO
-    # ═══════════════════════════════════════════════════
+    title_st = ParagraphStyle('T', fontSize=22, textColor=VORTEX_DARK, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=15)
+    num_st = ParagraphStyle('N', fontSize=18, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceBefore=0, spaceAfter=0)
+    sect_st = ParagraphStyle('H', fontSize=10, textColor=colors.white, backColor=VORTEX_DARK, borderPadding=5, spaceBefore=15, spaceAfter=10, fontName='Helvetica-Bold')
+    desc_st = ParagraphStyle('D', fontSize=8, textColor=colors.grey, alignment=TA_LEFT, leading=10, italic=True)
+    body_st = ParagraphStyle('B', fontSize=9, textColor=VORTEX_TEXT, leading=12)
 
     elementos = []
     resumen = analisis.get('resumen', {})
 
-    # ── PORTADA ──
-    elementos.append(Spacer(1, 80))
-    elementos.append(Paragraph("◆ VORTEX SECURITY INTELLIGENCE ◆", titulo_style))
-    elementos.append(Paragraph("Tactical Analysis Core - Reporte de Seguridad", ParagraphStyle(
-        'Subtitulo2', parent=styles['Normal'], fontSize=13, alignment=TA_CENTER,
-        textColor=colors.HexColor('#555555'), spaceAfter=30
-    )))
-
-    # Línea divisora
-    elementos.append(HRFlowable(width="80%", thickness=2, color=VORTEX_GREEN, spaceAfter=20))
-
-    # Fecha
-    fecha = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-    elementos.append(Paragraph(f"Fecha de generación: {fecha}", ParagraphStyle(
-        'Fecha', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER,
-        textColor=colors.HexColor('#777777'), spaceAfter=40
-    )))
-
-    # Métricas rápidas
-    nivel = resumen.get('nivel_riesgo', 'BAJO')
-    score = resumen.get('score_riesgo', 0)
-    color_nivel = VORTEX_RED if nivel == 'ALTO' else VORTEX_YELLOW if nivel == 'MEDIO' else VORTEX_GREEN
-
-    metricas_data = [
-        ['MÉTRICA', 'VALOR'],
-        ['Total de Logs Analizados', str(resumen.get('total_logs', 0))],
-        ['Amenazas Detectadas', str(resumen.get('total_amenazas', 0))],
-        ['Score de Riesgo', f'{score}/100'],
-        ['Nivel de Riesgo', nivel],
-        ['IPs Únicas', str(resumen.get('ips_unicas', 0))],
-        ['IPs Baneadas', str(resumen.get('ips_baneadas', 0))],
+    # ── PÁGINA 1: COMMAND SUMMARY ──
+    elementos.append(Spacer(1, 0.4*inch))
+    elementos.append(Paragraph("SÍNTESIS TÁCTICA DE OPERACIONES", title_st))
+    
+    # Grid de Métricas (Estilo Neón)
+    m_data = [
+        [Paragraph("<b>NODOS ÚNICOS</b>", body_st), Paragraph("<b>AMENAZAS</b>", body_st), Paragraph("<b>NIVEL RIESGO</b>", body_st)],
+        [Paragraph(f"<font color='#00d4ff'>{resumen.get('ips_unicas', 0)}</font>", num_st), 
+         Paragraph(f"<font color='#00d4ff'>{resumen.get('total_amenazas', 0)}</font>", num_st), 
+         Paragraph(f"<font color='#ff3366'>{resumen.get('score_riesgo', 0)}/100</font>", num_st)]
     ]
+    t_m = Table(m_data, colWidths=[1.8*inch, 1.8*inch, 1.8*inch], rowHeights=[None, 0.4*inch])
+    t_m.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 2, VORTEX_GREEN), ('INNERGRID', (0,0), (-1,-1), 0.5, VORTEX_GREEN), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+    elementos.append(t_m)
 
-    tabla_metricas = Table(metricas_data, colWidths=[250, 200])
-    tabla_metricas.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), VORTEX_DARK),
-        ('TEXTCOLOR', (0, 0), (-1, 0), VORTEX_GREEN),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f5f5f5')),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')]),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    elementos.append(tabla_metricas)
-    elementos.append(Spacer(1, 20))
+    chart_paths = {}
+    if graficos_b64:
+        for key, b64 in graficos_b64.items():
+            if b64:
+                try:
+                    c_path = os.path.join(os.path.dirname(__file__), f'vortex_chart_{key}.png')
+                    c_data = base64.b64decode(b64.split(',')[1] if ',' in b64 else b64)
+                    with open(c_path, 'wb') as f:
+                        f.write(c_data)
+                    chart_paths[key] = c_path
+                except Exception:
+                    pass
+
+    # Mapa (Immersive)
+    if os.path.exists(map_path):
+        elementos.append(Paragraph("ESTADO GLOBAL DE AMENAZAS", sect_st))
+        elementos.append(Image(map_path, width=5.5*inch, height=3*inch, kind='proportional'))
+        elementos.append(Paragraph("<b>MONITOREO GEOGRÁFICO:</b> Los clusters visualizados corresponden a la actividad detectada en tiempo real por los nodos externos de VORTEX.", desc_st))
+
+    # Gráfico 1: Vectores
+    tipos = analisis.get('tipos_ataque', [])
+    if tipos:
+        elementos.append(Paragraph("AUDITORÍA DE VECTORES", sect_st))
+        if 'ataques' in chart_paths and os.path.exists(chart_paths['ataques']):
+            elementos.append(Image(chart_paths['ataques'], width=5.5*inch, height=2.5*inch, kind='proportional'))
+        else:
+            elementos.append(Paragraph("<i>[Gráfico de Vectores no disponible]</i>", desc_st))
+        elementos.append(Spacer(1, 10))
+        elementos.append(Paragraph("<b>VECTORES TÁCTICOS:</b> Distribución de intentos de ataque clasificados por su firma de ejecución. Una mayor concentración en ciertos vectores indica una campaña focalizada.", desc_st))
 
     elementos.append(PageBreak())
 
-    # ── TOP IPS ──
-    elementos.append(Paragraph("🎯 TOP DIRECCIONES IP AMENAZANTES", subtitulo_style))
+    # ── PÁGINA 2: LÍNEA DE TIEMPO Y SISTEMAS ──
+    # Gráfico 2: Timeline
+    timeline = analisis.get('timeline', [])
+    if timeline:
+        elementos.append(Paragraph("HISTORIAL DE ATAQUES (TIMELINE)", sect_st))
+        if 'timeline' in chart_paths and os.path.exists(chart_paths['timeline']):
+            elementos.append(Image(chart_paths['timeline'], width=5.5*inch, height=2*inch, kind='proportional'))
+        else:
+            elementos.append(Paragraph("<i>[Timeline no disponible]</i>", desc_st))
+        elementos.append(Spacer(1, 10))
+        elementos.append(Paragraph("<b>ANÁLISIS TEMPORAL:</b> Frecuencia de incidentes a lo largo del periodo analizado. Útil para detectar patrones rítmicos o ventanas de vulnerabilidad sistemáticas.", desc_st))
+
+    # Gráfico 3: OS y Navegadores (Lado a lado o secuencial)
+    os_l = analisis.get('os_data', []); br_l = analisis.get('browsers_data', [])
+    if os_l or br_l:
+        elementos.append(Paragraph("PERFILADO DEL ADVERSARIO (FINGERPRINTING)", sect_st))
+        
+        img_os = Image(chart_paths['os'], width=2.5*inch, height=2.5*inch, kind='proportional') if 'os' in chart_paths else Paragraph("N/A", desc_st)
+        img_br = Image(chart_paths['browsers'], width=2.5*inch, height=2.5*inch, kind='proportional') if 'browsers' in chart_paths else Paragraph("N/A", desc_st)
+        
+        t_perfil = Table([[img_os, img_br]], colWidths=[2.75*inch, 2.75*inch])
+        t_perfil.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+        elementos.append(t_perfil)
+        
+        elementos.append(Spacer(1, 10))
+        elementos.append(Paragraph("<b>PERFILADO TÉCNICO:</b> Identificación de sistemas operativos (Izquierda) y clientes HTTP (Derecha) utilizados en la incursión. Este footprint permite trazar la sofisticación técnica del atacante.", desc_st))
+
+    # Gráfico 4: Perfiles
+    perf_l = analisis.get('perfiles_atacantes', [])
+    if perf_l:
+        elementos.append(Paragraph("CLASIFICACIÓN DE ATACANTES", sect_st))
+        p_counts = {}
+        from collections import Counter
+        p_counts = Counter(p.get('clasificacion', 'Unknown') for p in perf_l)
+        perfiles_txt = " • ".join([f"<b>{k}:</b> {v}" for k, v in p_counts.items()])
+        elementos.append(Paragraph(f"Distribución de perfiles detectados: {perfiles_txt}", body_st))
+        elementos.append(Spacer(1, 10))
+        elementos.append(Paragraph("<b>EVALUACIÓN DE AMENAZA:</b> Categorización final generada por el motor de inferencia táctica (Ej. Reconocimiento VS Explotación).", desc_st))
+
+    elementos.append(PageBreak())
+
+    # ── PÁGINA 3: LISTADO DE NODOS ──
+    elementos.append(Paragraph("ANÁLISIS DETALLADO DE NODOS CRÍTICOS", sect_st))
     top_ips = analisis.get('top_ips', [])
-
     if top_ips:
-        ip_data = [['IP', 'Peticiones', 'Score', 'Severidad', 'Estado']]
-        for ip_info in top_ips[:15]:
-            estado = '🔴 BANEADA' if ip_info.get('baneada') else '🟢 ACTIVA'
-            ip_data.append([
-                ip_info.get('ip', 'N/A'),
-                str(ip_info.get('count', 0)),
-                str(ip_info.get('score', 0)),
-                ip_info.get('severidad', 'INFO'),
-                estado
-            ])
-
-        tabla_ips = Table(ip_data, colWidths=[100, 70, 60, 80, 100])
-        tabla_ips.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), VORTEX_DARK),
-            ('TEXTCOLOR', (0, 0), (-1, 0), VORTEX_GREEN),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')]),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ip_data = [['ID', 'IP ORIGEN', 'SCORE', 'SEVERIDAD', 'STATUS']]
+        for i, ip in enumerate(top_ips[:22], 1):
+            ip_data.append([str(i), ip.get('ip'), str(ip.get('score')), ip.get('severidad'), "BANEADO" if ip.get('baneada') else "ACTIVA"])
+        t = Table(ip_data, colWidths=[0.5*inch, 2.0*inch, 0.8*inch, 1*inch, 1.2*inch])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), VORTEX_GREEN), ('TEXTCOLOR', (0,0), (-1,0), VORTEX_BG),
+            ('TEXTCOLOR', (0,1), (-1,-1), VORTEX_TEXT), ('GRID', (0,0), (-1,-1), 0.5, VORTEX_GREEN),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('FONTSIZE', (0,0), (-1,-1), 8)
         ]))
-        elementos.append(tabla_ips)
-    else:
-        elementos.append(Paragraph("No se detectaron IPs amenazantes.", normal_style))
+        elementos.append(t)
 
-    elementos.append(Spacer(1, 20))
-
-    # ── TOP URIS ──
-    elementos.append(Paragraph("🔗 TOP URIs ATACADAS", subtitulo_style))
-    top_uris = analisis.get('top_uris', [])
-
-    if top_uris:
-        uri_data = [['URI', 'Peticiones']]
-        for uri_info in top_uris[:15]:
-            uri_texto = uri_info.get('uri', 'N/A')
-            if len(uri_texto) > 60:
-                uri_texto = uri_texto[:57] + '...'
-            uri_data.append([uri_texto, str(uri_info.get('count', 0))])
-
-        tabla_uris = Table(uri_data, colWidths=[350, 80])
-        tabla_uris.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), VORTEX_DARK),
-            ('TEXTCOLOR', (0, 0), (-1, 0), VORTEX_GREEN),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')]),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elementos.append(tabla_uris)
-    else:
-        elementos.append(Paragraph("No se detectaron URIs atacadas.", normal_style))
-
-    elementos.append(Spacer(1, 20))
-
-    # ── TIPOS DE ATAQUE ──
-    elementos.append(Paragraph("🚨 TIPOS DE ATAQUES DETECTADOS", subtitulo_style))
-    tipos_ataque = analisis.get('tipos_ataque', [])
-
-    if tipos_ataque:
-        tipos_data = [['Tipo de Ataque', 'Incidencias']]
-        for tipo in tipos_ataque:
-            tipos_data.append([tipo.get('tipo', 'N/A'), str(tipo.get('count', 0))])
-
-        tabla_tipos = Table(tipos_data, colWidths=[300, 100])
-        tabla_tipos.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), VORTEX_DARK),
-            ('TEXTCOLOR', (0, 0), (-1, 0), VORTEX_GREEN),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')]),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elementos.append(tabla_tipos)
-
-    elementos.append(PageBreak())
-
-    # ── INFORME IA ──
-    informe_ia = analisis.get('informe_ia', {})
-    if informe_ia and informe_ia.get('informe_ejecutivo'):
-        elementos.append(Paragraph("🤖 ANÁLISIS DE INTELIGENCIA ARTIFICIAL", subtitulo_style))
-        # Dividir informe en párrafos
-        texto_informe = informe_ia['informe_ejecutivo']
-        for linea in texto_informe.split('\n'):
-            linea = linea.strip()
-            if linea:
-                # Escapar caracteres especiales para XML
-                linea = linea.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                if linea.startswith('═') or linea.startswith('─'):
-                    elementos.append(HRFlowable(width="100%", thickness=1, color=VORTEX_GREEN))
-                elif linea.startswith('⚠') or linea.startswith('🚨') or linea.startswith('⚡'):
-                    elementos.append(Paragraph(linea, alerta_style))
-                else:
-                    elementos.append(Paragraph(linea, normal_style))
-        elementos.append(Spacer(1, 20))
-
-    # ── PIE DE PÁGINA / BRANDING ──
-    elementos.append(Spacer(1, 30))
-    elementos.append(HRFlowable(width="100%", thickness=2, color=VORTEX_GREEN))
-    elementos.append(Spacer(1, 10))
-    elementos.append(Paragraph(
-        "VORTEX Security Intelligence - Tactical Analysis Core",
-        ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9,
-                       alignment=TA_CENTER, textColor=colors.HexColor('#999999'))
-    ))
-    elementos.append(Paragraph(
-        "Este reporte es confidencial y de uso exclusivo del equipo de seguridad.",
-        ParagraphStyle('Footer2', parent=styles['Normal'], fontSize=8,
-                       alignment=TA_CENTER, textColor=colors.HexColor('#bbbbbb'))
-    ))
-
-    # ═══════════════════════════════════════════════════
-    # GENERAR PDF
-    # ═══════════════════════════════════════════════════
+    # Neural / Motor de Reglas
+    inf_ia = analisis.get('informe_ia', {})
+    if inf_ia.get('informe_ejecutivo'):
+        elementos.append(PageBreak())
+        elementos.append(Paragraph(f"SÍNTESIS DE INTELIGENCIA: {inf_ia.get('generado_por', 'VORTEX')}", sect_st))
+        
+        import re
+        texto_crudo = inf_ia['informe_ejecutivo']
+        
+        # Eliminar emojis explícitos y caracteres de caja
+        texto_limpio = re.sub(r'[═║╔╗╚╝╠╣╦╩╬│─┌┐└┘├┤┬┴┼✅✔️✖️❌⚠️🛡️🚨ℹ️⚡⭐✨📊📈]', '', texto_crudo)
+        texto_limpio = re.sub(r'[\U00010000-\U0010ffff]', '', texto_limpio)
+        
+        for p in texto_limpio.split('\n'):
+            p_str = p.strip()
+            if p_str:
+                elementos.append(Paragraph(f"<font color='#00d4ff'>›</font> {p_str}", body_st))
+                elementos.append(Spacer(1, 4))
 
     try:
-        doc.build(elementos)
-        return {
-            'ruta': ruta_salida,
-            'nombre': os.path.basename(ruta_salida),
-            'exito': True,
-            'mensaje': f'Reporte generado exitosamente: {os.path.basename(ruta_salida)}'
-        }
+        doc.build(elementos, onFirstPage=draw_dark_theme, onLaterPages=draw_dark_theme)
+        return {'ruta': ruta_salida, 'nombre': os.path.basename(ruta_salida), 'exito': True}
     except Exception as e:
-        return {
-            'error': f'Error al generar PDF: {str(e)}',
-            'ruta': '',
-            'exito': False
-        }
+        return {'exito': False, 'error': str(e)}

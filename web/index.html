@@ -1,26 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="VORTEX Security Intelligence - Sistema SIEM/IDS con IA Local">
     <title>VORTEX Security Intelligence - Tactical Analysis Core</title>
-    
+    <link rel="icon" type="image/png" href="Vortex.png">
     <!-- Eel -->
     <script type="text/javascript" src="/eel.js"></script>
-    
+
     <!-- Chart.js + Plugins -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
+
     <!-- Estilos -->
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
     <!-- ═══════════════════════════════════════════════════════
@@ -66,7 +69,7 @@
         <!-- ── SECCIÓN DE INGESTA ── -->
         <section class="ingest-section" id="ingest-section">
             <div class="section-title">Ingesta de Logs de Seguridad</div>
-            
+
             <div class="drop-zone" id="drop-zone">
                 <span class="drop-zone-icon">📂</span>
                 Arrastra un archivo de log aquí o haz clic para seleccionar
@@ -89,14 +92,42 @@
                 </button>
             </div>
 
-            <textarea class="log-textarea" id="log-textarea" 
+            <textarea class="log-textarea" id="log-textarea"
                 placeholder="Pega tus logs de seguridad aquí...&#10;&#10;Formato: [YYYY-MM-DD HH:MM:SS] [SEVERITY] Type: TYPE | IP: IP | URI: /ruta | Method: GET/POST | UA: user-agent"></textarea>
-            
+
             <!-- Progreso de análisis -->
             <div class="analysis-progress" id="analysis-progress">
                 <p class="progress-text" id="progress-text">⚡ Analizando logs...</p>
                 <div class="progress-bar-container">
                     <div class="progress-bar-fill"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── HEALTH MONITOR & SELECTOR ── -->
+        <section class="master-view-selector" id="view-mode-section" style="display:none; flex-direction:column; gap:10px;">
+            <div class="health-monitor-bar" id="health-monitor">
+                <div class="health-item">
+                    <span class="health-label">CPU:</span>
+                    <div class="health-progress"><div class="hp-fill" id="hp-cpu" style="width:0%"></div></div>
+                    <span class="health-val" id="hp-cpu-val">0%</span>
+                </div>
+                <div class="health-item">
+                    <span class="health-label">RAM:</span>
+                    <div class="health-progress"><div class="hp-fill blue" id="hp-ram" style="width:0%"></div></div>
+                    <span class="health-val" id="hp-ram-val">0%</span>
+                </div>
+                <div class="health-item">
+                    <span class="health-label">NÚCLEO NEURAL:</span>
+                    <span class="health-status-text" id="hp-neural">PENDIENTE</span>
+                </div>
+            </div>
+            
+            <div class="selector-container">
+                <span class="selector-label">🛡️ MODO DE ANÁLISIS:</span>
+                <div class="view-mode-buttons">
+                    <button class="btn-mode active" id="btn-view-mode-top">💎 RESUMEN TOP 20</button>
+                    <button class="btn-mode" id="btn-view-mode-full">📑 AUDITORÍA COMPLETA</button>
                 </div>
             </div>
         </section>
@@ -156,16 +187,29 @@
                 <!-- Top IPs -->
                 <div class="panel">
                     <div class="panel-header">
-                        <span class="panel-title">🔴 Top IPs Amenazantes</span>
-                        <button class="btn-voice-panel" data-target="table-top-ips" title="Leer esta sección">🔊</button>
+                        <span class="panel-title">🛡️ IPs Analizadas</span>
+                        <div class="panel-actions">
+                            <button class="btn-voice-panel" data-target="table-ips" title="Leer esta sección">🔊</button>
+                        </div>
                     </div>
-                    <div class="panel-body" id="ips-section" style="max-height:400px;">
-                        <table class="data-table" id="table-top-ips">
+                    <div class="panel-search">
+                        <input type="text" id="search-ips" placeholder="🔍 Filtrar IP..." class="tactical-input">
+                    </div>
+                    <div class="panel-body scrollable-table-container">
+                        <table class="data-table" id="table-ips">
                             <thead>
-                                <tr><th>IP</th><th>Req</th><th>Score</th><th>Estado</th></tr>
+                                <tr>
+                                    <th>IP Address</th>
+                                    <th>Req</th>
+                                    <th>Score</th>
+                                    <th>Estado</th>
+                                </tr>
                             </thead>
                             <tbody></tbody>
                         </table>
+                        <div class="table-load-more">
+                            <button class="btn btn-sm btn-ghost" id="btn-load-more-ips">Ver más IPs...</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -182,9 +226,15 @@
                             🎯 SERVIDOR BASE: MÉXICO 🇲🇽
                         </div>
                         <div class="map-legend">
-                            <div class="legend-item"><div class="legend-dot red"></div> Ataque Crítico</div>
-                            <div class="legend-item"><div class="legend-dot yellow"></div> Sospechoso</div>
-                            <div class="legend-item"><div class="legend-dot blue"></div> Tráfico Normal</div>
+                            <div class="legend-item">
+                                <div class="legend-dot red"></div> Ataque Crítico
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot yellow"></div> Sospechoso
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot blue"></div> Tráfico Normal
+                            </div>
                         </div>
                         <div id="god-eye-map"></div>
                     </div>
@@ -200,7 +250,8 @@
                         <div class="console-line">
                             <span class="console-time">[--:--:--]</span>
                             <span class="console-severity info">SYSTEM</span>
-                            <span class="console-msg">VORTEX Security Intelligence inicializado. Esperando datos...</span>
+                            <span class="console-msg">VORTEX Security Intelligence inicializado. Esperando
+                                datos...</span>
                         </div>
                     </div>
                 </div>
@@ -212,12 +263,16 @@
                 <div class="panel" style="margin-bottom:16px;">
                     <div class="panel-header">
                         <span class="panel-title">🚨 Tipos de Ataque</span>
-                        <button class="btn-voice-panel" data-target="table-attack-types" title="Leer esta sección">🔊</button>
+                        <button class="btn-voice-panel" data-target="table-attack-types"
+                            title="Leer esta sección">🔊</button>
                     </div>
                     <div class="panel-body">
                         <table class="data-table" id="table-attack-types">
                             <thead>
-                                <tr><th>Tipo</th><th>Cantidad</th></tr>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Cantidad</th>
+                                </tr>
                             </thead>
                             <tbody></tbody>
                         </table>
@@ -227,15 +282,27 @@
                 <!-- Top URIs -->
                 <div class="panel" style="margin-bottom:16px;">
                     <div class="panel-header">
-                        <span class="panel-title">🔗 Top URIs Atacadas</span>
+                        <span class="panel-title">🔗 URIs Monitoreadas</span>
+                        <div class="panel-actions">
+                            <button class="btn-voice-panel" data-target="table-uris" title="Leer esta sección">🔊</button>
+                        </div>
                     </div>
-                    <div class="panel-body" style="max-height:250px;">
-                        <table class="data-table" id="table-top-uris">
+                    <div class="panel-search">
+                        <input type="text" id="search-uris" placeholder="🔍 Filtrar URI..." class="tactical-input">
+                    </div>
+                    <div class="panel-body scrollable-table-container">
+                        <table class="data-table" id="table-uris">
                             <thead>
-                                <tr><th>URI</th><th>Hits</th></tr>
+                                <tr>
+                                    <th>Ruta / URI</th>
+                                    <th>Impacto</th>
+                                </tr>
                             </thead>
                             <tbody></tbody>
                         </table>
+                        <div class="table-load-more">
+                            <button class="btn btn-sm btn-ghost" id="btn-load-more-uris">Ver más rutas...</button>
+                        </div>
                     </div>
                 </div>
 
@@ -252,16 +319,29 @@
                             <button class="btn btn-sm btn-blue" id="btn-load-ia">Cargar Modelo</button>
                         </div>
 
-                        <button class="btn btn-primary" id="btn-generate-pdf" style="width:100%;" disabled>
-                            📄 Generar Reporte PDF
+                        <button class="btn btn-primary" id="btn-generate-pdf" style="width:100%;" disabled
+                            title="Generar y elegir donde guardar el reporte PDF">
+                            📄 Exportar Reporte PDF
                         </button>
-                        <button class="btn btn-blue" id="btn-generate-rules" style="width:100%;" disabled title="Informe rápido basado en patrones de reglas">
+                        
+                        <div class="export-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:5px;">
+                            <button class="btn btn-sm btn-ghost" id="btn-export-csv" disabled title="Exportar IPs a CSV para SIEM">📂 CSV Forense</button>
+                            <button class="btn btn-sm btn-ghost" id="btn-export-json" disabled title="Exportar análisis completo a JSON">📂 JSON Crudo</button>
+                        </div>
+
+                        <button class="btn btn-blue" id="btn-generate-rules" style="width:100%; margin-top:10px;" disabled
+                            title="Informe rápido basado en patrones de reglas">
                             🤖 Informe Rápido (Reglas)
                         </button>
-                        <button class="btn btn-blue" id="btn-generate-ia" style="width:100%;" disabled title="Informe profundo usando IA Local (Lento)">
+                        <button class="btn btn-blue" id="btn-generate-ia" style="width:100%;" disabled
+                            title="Informe profundo usando IA Local (Lento)">
                             ✨ Informe Profundo (IA)
                         </button>
-                        <button class="btn btn-blue" id="btn-open-pdf" style="width:100%;" disabled>
+                        <button class="btn btn-ghost" id="btn-voice-briefing" style="width:100%; margin-top:5px;" disabled
+                            title="Escuchar resumen táctico generado">
+                            🔊 Briefing Narrado (Voz)
+                        </button>
+                        <button class="btn btn-blue" id="btn-open-pdf" style="width:100%; border-top:1px solid rgba(0,255,159,0.2); padding-top:10px; margin-top:10px;" disabled>
                             📂 Abrir Último PDF
                         </button>
                     </div>
@@ -361,4 +441,5 @@
     <script src="map.js"></script>
 
 </body>
+
 </html>

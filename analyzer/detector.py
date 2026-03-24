@@ -284,9 +284,9 @@ def analizar_logs_completo(logs_parseados):
     score_riesgo = calcular_score_riesgo(todos_ataques)
     nivel_riesgo = 'BAJO' if score_riesgo < 30 else 'MEDIO' if score_riesgo < 60 else 'ALTO'
 
-    # Top IPs con score
+    # Lista completa de IPs con score
     top_ips = []
-    for ip, count in ips_counter.most_common(20):
+    for ip, count in ips_counter.most_common():
         ip_scores = [a['score'] for a in ips_ataques.get(ip, [])]
         ip_score = max(ip_scores) if ip_scores else 0
         ip_tipos = list(set(a['tipo'] for a in ips_ataques.get(ip, [])))
@@ -299,8 +299,8 @@ def analizar_logs_completo(logs_parseados):
             'baneada': ip in ips_baneadas
         })
 
-    # Top URIs
-    top_uris = [{'uri': uri, 'count': count} for uri, count in uris_counter.most_common(20)]
+    # Lista completa de URIs
+    top_uris = [{'uri': uri, 'count': count} for uri, count in uris_counter.most_common()]
 
     # Tipos de ataque
     tipos_ataque = [{'tipo': tipo, 'count': count} for tipo, count in tipos_ataque_counter.most_common(15)]
