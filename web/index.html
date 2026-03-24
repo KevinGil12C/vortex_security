@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="VORTEX Security Intelligence - Sistema SIEM/IDS con IA Local">
+    <title>VORTEX Security Intelligence - Tactical Analysis Core</title>
+    
+    <!-- Eel -->
+    <script type="text/javascript" src="/eel.js"></script>
+    
+    <!-- Chart.js + Plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Estilos -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ═══════════════════════════════════════════════════════
+         PANTALLA DE ARRANQUE (BOOT)
+         ═══════════════════════════════════════════════════════ -->
+    <div id="boot-screen">
+        <div class="boot-logo">VORTEX</div>
+        <div class="boot-terminal" id="boot-terminal">
+            <!-- Las líneas se agregan dinámicamente -->
+        </div>
+        <div class="boot-progress">
+            <div class="boot-progress-bar" id="boot-progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         HEADER
+         ═══════════════════════════════════════════════════════ -->
+    <header class="header" id="main-header" style="display:none;">
+        <div class="header-left">
+            <span class="header-logo">◆ VORTEX</span>
+            <span class="header-subtitle">Security Intelligence // Tactical Analysis Core v1.0</span>
+        </div>
+        <div class="header-right">
+            <div class="header-status">
+                <div class="status-dot"></div>
+                <span id="status-text">SISTEMA OPERATIVO</span>
+            </div>
+            <label class="toggle-switch" title="Toggle voz">
+                <input type="checkbox" id="voice-toggle" checked>
+                <div class="toggle-slider"></div>
+                <span>🔊 VOZ</span>
+            </label>
+            <span class="header-status" id="clock-display"></span>
+        </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════════════
+         CONTENIDO PRINCIPAL
+         ═══════════════════════════════════════════════════════ -->
+    <main class="main-container" id="main-content" style="display:none;">
+
+        <!-- ── SECCIÓN DE INGESTA ── -->
+        <section class="ingest-section" id="ingest-section">
+            <div class="section-title">Ingesta de Logs de Seguridad</div>
+            
+            <div class="drop-zone" id="drop-zone">
+                <span class="drop-zone-icon">📂</span>
+                Arrastra un archivo de log aquí o haz clic para seleccionar
+            </div>
+
+            <div class="ingest-controls">
+                <div class="file-input-wrapper">
+                    <button class="btn btn-blue btn-sm" id="btn-load-file">📁 Cargar Archivo</button>
+                    <input type="file" id="file-input" accept=".log,.txt,.csv">
+                </div>
+                <button class="btn btn-blue btn-sm" id="btn-load-default" title="Cargar desde ruta configurada en .env">
+                    📥 Cargar desde .env
+                </button>
+                <button class="btn btn-blue btn-sm" id="btn-load-sample">
+                    📋 Cargar Log de Ejemplo
+                </button>
+                <div style="flex:1;"></div>
+                <button class="btn btn-primary" id="btn-analyze" disabled>
+                    ⚡ Iniciar Análisis
+                </button>
+            </div>
+
+            <textarea class="log-textarea" id="log-textarea" 
+                placeholder="Pega tus logs de seguridad aquí...&#10;&#10;Formato: [YYYY-MM-DD HH:MM:SS] [SEVERITY] Type: TYPE | IP: IP | URI: /ruta | Method: GET/POST | UA: user-agent"></textarea>
+            
+            <!-- Progreso de análisis -->
+            <div class="analysis-progress" id="analysis-progress">
+                <p class="progress-text" id="progress-text">⚡ Analizando logs...</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── MÉTRICAS GLOBALES ── -->
+        <section class="metrics-row" id="metrics-section" style="display:none;">
+            <div class="metric-card">
+                <div class="metric-label">Total Logs</div>
+                <div class="metric-value green" id="m-total-logs">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Amenazas</div>
+                <div class="metric-value red" id="m-amenazas">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Score Riesgo</div>
+                <div class="metric-value yellow" id="m-score">0</div>
+                <div class="metric-sub" id="m-nivel">---</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">IPs Únicas</div>
+                <div class="metric-value blue" id="m-ips">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">IPs Baneadas</div>
+                <div class="metric-value red" id="m-baneadas">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Anomalías IA</div>
+                <div class="metric-value" id="m-anomalias" style="color:var(--purple-accent);">0</div>
+            </div>
+        </section>
+
+        <!-- ── CONTENIDO 3 COLUMNAS ── -->
+        <section class="content-grid" id="content-section" style="display:none;">
+
+            <!-- COLUMNA IZQUIERDA: Riesgo + Top IPs -->
+            <div>
+                <!-- Indicador de riesgo -->
+                <div class="panel" style="margin-bottom:16px;">
+                    <div class="panel-header">
+                        <span class="panel-title">🎯 Nivel de Riesgo</span>
+                        <button class="btn-voice-panel" data-target="risk-section" title="Leer esta sección">🔊</button>
+                    </div>
+                    <div class="panel-body" id="risk-section">
+                        <div class="risk-indicator">
+                            <div class="risk-gauge">
+                                <div class="risk-gauge-bg"></div>
+                                <div class="risk-gauge-fill" id="risk-needle"></div>
+                            </div>
+                            <div class="risk-score" id="risk-score">0</div>
+                            <div class="risk-label" id="risk-label">---</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top IPs -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">🔴 Top IPs Amenazantes</span>
+                        <button class="btn-voice-panel" data-target="table-top-ips" title="Leer esta sección">🔊</button>
+                    </div>
+                    <div class="panel-body" id="ips-section" style="max-height:400px;">
+                        <table class="data-table" id="table-top-ips">
+                            <thead>
+                                <tr><th>IP</th><th>Req</th><th>Score</th><th>Estado</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA CENTRAL: Mapa Ojo de Dios -->
+            <div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">🌍 Ojo de Dios - Mapa de Ataques</span>
+                        <button class="btn btn-sm btn-primary" id="btn-refresh-map">⟳ Actualizar</button>
+                    </div>
+                    <div class="map-container">
+                        <div class="map-overlay" id="map-overlay">
+                            🎯 SERVIDOR BASE: MÉXICO 🇲🇽
+                        </div>
+                        <div class="map-legend">
+                            <div class="legend-item"><div class="legend-dot red"></div> Ataque Crítico</div>
+                            <div class="legend-item"><div class="legend-dot yellow"></div> Sospechoso</div>
+                            <div class="legend-item"><div class="legend-dot blue"></div> Tráfico Normal</div>
+                        </div>
+                        <div id="god-eye-map"></div>
+                    </div>
+                </div>
+
+                <!-- Consola en vivo -->
+                <div class="panel" style="margin-top:16px;">
+                    <div class="panel-header">
+                        <span class="panel-title">📡 Consola en Vivo</span>
+                        <button class="btn btn-sm btn-primary" id="btn-clear-console">Limpiar</button>
+                    </div>
+                    <div class="live-console" id="live-console">
+                        <div class="console-line">
+                            <span class="console-time">[--:--:--]</span>
+                            <span class="console-severity info">SYSTEM</span>
+                            <span class="console-msg">VORTEX Security Intelligence inicializado. Esperando datos...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA DERECHA: Tipos de ataque + Top URIs -->
+            <div>
+                <!-- Tipos de ataque -->
+                <div class="panel" style="margin-bottom:16px;">
+                    <div class="panel-header">
+                        <span class="panel-title">🚨 Tipos de Ataque</span>
+                        <button class="btn-voice-panel" data-target="table-attack-types" title="Leer esta sección">🔊</button>
+                    </div>
+                    <div class="panel-body">
+                        <table class="data-table" id="table-attack-types">
+                            <thead>
+                                <tr><th>Tipo</th><th>Cantidad</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Top URIs -->
+                <div class="panel" style="margin-bottom:16px;">
+                    <div class="panel-header">
+                        <span class="panel-title">🔗 Top URIs Atacadas</span>
+                    </div>
+                    <div class="panel-body" style="max-height:250px;">
+                        <table class="data-table" id="table-top-uris">
+                            <thead>
+                                <tr><th>URI</th><th>Hits</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">⚙️ Acciones</span>
+                    </div>
+                    <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+                        <!-- IA Status -->
+                        <div class="ia-status-box" id="ia-status-box">
+                            <span class="ia-status-dot" id="ia-status-dot"></span>
+                            <span class="ia-status-msg" id="ia-status-msg">IA LLM: No cargada</span>
+                            <button class="btn btn-sm btn-blue" id="btn-load-ia">Cargar Modelo</button>
+                        </div>
+
+                        <button class="btn btn-primary" id="btn-generate-pdf" style="width:100%;" disabled>
+                            📄 Generar Reporte PDF
+                        </button>
+                        <button class="btn btn-blue" id="btn-generate-rules" style="width:100%;" disabled title="Informe rápido basado en patrones de reglas">
+                            🤖 Informe Rápido (Reglas)
+                        </button>
+                        <button class="btn btn-blue" id="btn-generate-ia" style="width:100%;" disabled title="Informe profundo usando IA Local (Lento)">
+                            ✨ Informe Profundo (IA)
+                        </button>
+                        <button class="btn btn-blue" id="btn-open-pdf" style="width:100%;" disabled>
+                            📂 Abrir Último PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── GRÁFICAS ── -->
+        <section class="charts-grid" id="charts-section" style="display:none;">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">📊 Ataques por Tipo</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-attack-types"></canvas>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">📈 Timeline de Eventos</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-timeline"></canvas>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">🖥️ Sistemas Operativos</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-os"></canvas>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">🌐 Navegadores / Clientes</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-browsers"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── INFORME IA ── -->
+        <section class="panel" id="ia-section" style="display:none;">
+            <div class="panel-header">
+                <span class="panel-title">🤖 Informe de Inteligencia Artificial</span>
+                <button class="btn-voice-panel" data-target="ia-report-content" title="Leer esta sección">🔊</button>
+            </div>
+            <div class="panel-body">
+                <div class="ia-report" id="ia-report-content">
+                    Presiona "Generar Informe IA" para obtener un análisis detallado...
+                </div>
+            </div>
+        </section>
+
+        <!-- ── PERFILES DE ATACANTES ── -->
+        <section class="panel" id="attackers-section" style="display:none;">
+            <div class="panel-header">
+                <span class="panel-title">🎯 Perfiles de Atacantes</span>
+                <button class="btn-voice-panel" data-target="table-attackers" title="Leer esta sección">🔊</button>
+            </div>
+            <div class="panel-body">
+                <table class="data-table" id="table-attackers">
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>Score</th>
+                            <th>Requests</th>
+                            <th>Clasificación</th>
+                            <th>Tipos</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════
+         FOOTER
+         ═══════════════════════════════════════════════════════ -->
+    <footer class="footer-bar" id="main-footer" style="display:none;">
+        <span>VORTEX Security Intelligence v1.0 // Tactical Analysis Core</span>
+        <span id="footer-status">Estado: Esperando datos</span>
+        <span id="footer-clock"></span>
+    </footer>
+
+    <!-- Toast notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+    <script src="charts.js"></script>
+    <script src="map.js"></script>
+
+</body>
+</html>

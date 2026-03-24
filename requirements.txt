@@ -1,0 +1,9 @@
+eel
+python-dotenv
+pyttsx3
+reportlab
+scikit-learn
+numpy
+transformers
+torch
+accelerate

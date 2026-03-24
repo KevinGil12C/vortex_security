@@ -1,0 +1,36 @@
+# ═══════════════════════════════════════════════════════════════
+# VORTEX Security Intelligence - Git Exclusion
+# ═══════════════════════════════════════════════════════════════
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv
+venv/
+[Vv]env/
+**/venv/
+.env
+.venv
+.venv/
+
+# Logs y Datos Writable
+writable/logs/*
+!writable/logs/.gitkeep
+
+# Modelos IA (Demasiado pesados para Git)
+models/*
+!models/.gitkeep
+
+# Eel / Web
+web/dist/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+DS_Store
