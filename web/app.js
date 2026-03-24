@@ -187,9 +187,14 @@ function inicializarIngesta() {
     const btnLoadDefault = document.getElementById('btn-load-default');
     const btnLoadSample = document.getElementById('btn-load-sample');
 
-    // Habilitar botón cuando hay texto
+    // Habilitar botón cuando hay texto y autodetectar fechas sin molestar
+    let typingTimer;
     textarea.addEventListener('input', () => {
         btnAnalyze.disabled = !textarea.value.trim();
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+            if (textarea.value.trim()) autoDetectFechas(true);
+        }, 800);
     });
 
     // Drag & Drop
@@ -226,6 +231,7 @@ function inicializarIngesta() {
             if (data.exito) {
                 textarea.value = data.contenido;
                 btnAnalyze.disabled = false;
+                autoDetectFechas(true);
                 mostrarToast(`${data.total_lineas} líneas cargadas desde .env`, 'success');
                 agregarLineaConsola('INFO', `${data.total_lineas} líneas cargadas desde archivo .env`);
             } else {
@@ -240,6 +246,11 @@ function inicializarIngesta() {
     // Cargar sample
     btnLoadSample.addEventListener('click', () => {
         cargarLogEjemplo();
+    });
+
+    // Auto-detectar explícitamente
+    document.getElementById('btn-detect-dates')?.addEventListener('click', () => {
+        autoDetectFechas(false);
     });
 
     // Botón analizar
@@ -308,12 +319,42 @@ function inicializarIngesta() {
     });
 }
 
+function autoDetectFechas(silent = false) {
+    const textarea = document.getElementById('log-textarea');
+    if (!textarea || !textarea.value.trim()) return;
+    
+    const lines = textarea.value.split('\n');
+    const dates = [];
+    const regex = /\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/;
+    
+    // Para ser eficientes con logs enormes, leemos algunas al principio y final
+    lines.forEach(l => {
+        const match = l.match(regex);
+        if (match) dates.push(match[1]);
+    });
+    
+    if (dates.length > 0) {
+        dates.sort();
+        const start = dates[0].replace(' ', 'T').substring(0, 16);
+        const end = dates[dates.length - 1].replace(' ', 'T').substring(0, 16);
+        document.getElementById('filter-date-start').value = start;
+        document.getElementById('filter-date-end').value = end;
+        if (!silent) {
+            mostrarToast('Rango de fechas detectado automáticamente', 'info');
+            agregarLineaConsola('INFO', `Rango detectado: ${start} a ${end}`);
+        }
+    } else {
+        if (!silent) mostrarToast('No se encontraron fechas válidas en los logs', 'warning');
+    }
+}
+
 function leerArchivo(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const textarea = document.getElementById('log-textarea');
         textarea.value = e.target.result;
         document.getElementById('btn-analyze').disabled = false;
+        autoDetectFechas(true);
         mostrarToast(`Archivo "${file.name}" cargado (${(file.size / 1024).toFixed(1)} KB)`, 'success');
         agregarLineaConsola('INFO', `Archivo cargado: ${file.name}`);
     };
@@ -325,6 +366,7 @@ function cargarLogEjemplo() {
     const sampleLogs = generarLogsEjemplo();
     document.getElementById('log-textarea').value = sampleLogs;
     document.getElementById('btn-analyze').disabled = false;
+    autoDetectFechas(true);
     mostrarToast('Logs de ejemplo cargados', 'success');
     agregarLineaConsola('INFO', 'Logs de ejemplo cargados en textarea');
 }
@@ -412,11 +454,11 @@ async function ejecutarAnalisis(textoLogs) {
 
     const pasos = [
         'Parseando logs de seguridad...',
-        'Ejecutando motor de detección de ataques...',
-        'Iniciando análisis de Machine Learning...',
-        'Geolocalizando direcciones IP...',
-        'Generando perfiles de atacantes...',
-        'Compilando resultados...',
+        'Aplicando filtros de tiempo...',
+        'Ejecutando motor de detección...',
+        'Iniciando Machine Learning...',
+        'Geolocalizando IPs (Ojo de Dios)...',
+        'Inferencia de Perfiles Tácticos...',
     ];
 
     // Simular progreso visual mientras se procesa
@@ -430,8 +472,11 @@ async function ejecutarAnalisis(textoLogs) {
     }, 600);
 
     try {
-        // Llamar al backend
-        const resultado = await eel.analizar_logs(textoLogs)();
+        const startFilter = document.getElementById('filter-date-start')?.value || null;
+        const endFilter = document.getElementById('filter-date-end')?.value || null;
+
+        // Llamar al backend con el texto y las fechas
+        const resultado = await eel.analizar_logs(textoLogs, startFilter, endFilter)();
         clearInterval(intervalo);
 
         const datos = JSON.parse(resultado);

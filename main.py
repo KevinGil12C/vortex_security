@@ -66,10 +66,11 @@ def obtener_ia():
 # ═══════════════════════════════════════════════════════════════
 
 @eel.expose
-def analizar_logs(texto_logs=None):
+def analizar_logs(texto_logs=None, fecha_inicio=None, fecha_fin=None):
     """
     Función principal de análisis.
-    Si texto_logs es None, lee del archivo configurado en .env
+    Si texto_logs es None, lee del archivo configurado en .env.
+    Filtra los logs cronológicamente si se proveen límites.
     """
     estado_global['analizando'] = True
 
@@ -86,12 +87,38 @@ def analizar_logs(texto_logs=None):
             resultado_parser = leer_archivo_log(LOG_PATH)
 
         logs = resultado_parser.get('logs', [])
+        
+        # Filtro de Ventana Táctica
+        if fecha_inicio_str := fecha_inicio:
+            try: dt_inicio = datetime.strptime(fecha_inicio_str[:16], '%Y-%m-%dT%H:%M')
+            except ValueError: dt_inicio = None
+        else: dt_inicio = None
+            
+        if fecha_fin_str := fecha_fin:
+            try: dt_fin = datetime.strptime(fecha_fin_str[:16], '%Y-%m-%dT%H:%M')
+            except ValueError: dt_fin = None
+        else: dt_fin = None
+
+        if dt_inicio or dt_fin:
+            logs_filtrados = []
+            for l in logs:
+                dt_str = l.get('fecha')
+                if not dt_str: continue
+                try:
+                    dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+                    if dt_inicio is not None and dt < dt_inicio: continue
+                    if dt_fin is not None and dt > dt_fin: continue
+                    logs_filtrados.append(l)
+                except Exception:
+                    pass
+            logs = logs_filtrados
+
         estado_global['logs_cargados'] = logs
 
         if not logs:
             estado_global['analizando'] = False
             return json.dumps({
-                'error': 'No se encontraron logs para analizar',
+                'error': 'No se encontraron logs en el rango de tiempo seleccionado.',
                 'parser': resultado_parser
             }, ensure_ascii=False)
 

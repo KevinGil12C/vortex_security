@@ -95,6 +95,15 @@
             <textarea class="log-textarea" id="log-textarea"
                 placeholder="Pega tus logs de seguridad aquí...&#10;&#10;Formato: [YYYY-MM-DD HH:MM:SS] [SEVERITY] Type: TYPE | IP: IP | URI: /ruta | Method: GET/POST | UA: user-agent"></textarea>
 
+            <!-- Filtro de Fechas -->
+            <div class="date-filter-panel" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; padding: 10px; background: rgba(0, 212, 255, 0.05); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 4px;">
+                <span style="color:var(--neon-blue); font-size:12px; font-weight:bold;">🕒 VENTANA TÁCTICA:</span>
+                <input type="datetime-local" id="filter-date-start" class="tactical-input" style="flex:1; min-width:180px;">
+                <span style="color:var(--text-color);">a</span>
+                <input type="datetime-local" id="filter-date-end" class="tactical-input" style="flex:1; min-width:180px;">
+                <button class="btn btn-sm btn-ghost" id="btn-detect-dates" title="Escanear logs y extraer primera/última fecha">🔍 Auto-Detectar</button>
+            </div>
+
             <!-- Progreso de análisis -->
             <div class="analysis-progress" id="analysis-progress">
                 <p class="progress-text" id="progress-text">⚡ Analizando logs...</p>
