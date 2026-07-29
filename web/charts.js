@@ -15,13 +15,38 @@ const COLORES_VORTEX = [
 const COLORES_VORTEX_BG = COLORES_VORTEX.map(c => c + '33');
 
 // Configuración global de Chart.js
-Chart.defaults.color = '#8892a0';
-Chart.defaults.borderColor = 'rgba(26, 26, 62, 0.5)';
-Chart.defaults.font.family = "'Share Tech Mono', 'Consolas', monospace";
-Chart.defaults.font.size = 11;
-
-// Instancias de charts (para destruir y recrear)
 let chartInstances = {};
+
+function obtenerColoresChart() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    return {
+        textColor: isLight ? '#5a6270' : '#8892a0',
+        borderColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(26, 26, 62, 0.5)',
+        gridColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(26, 26, 62, 0.3)',
+        tooltipBg: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(10, 10, 30, 0.95)',
+        tooltipBorder: isLight ? '#00a86b' : '#00ff9f',
+    };
+}
+
+function aplicarGlobalChartDefaults() {
+    const colores = obtenerColoresChart();
+    Chart.defaults.color = colores.textColor;
+    Chart.defaults.borderColor = colores.borderColor;
+    Chart.defaults.font.family = "'Share Tech Mono', 'Consolas', monospace";
+    Chart.defaults.font.size = 11;
+
+    // Actualizar instancias existentes
+    Object.values(chartInstances).forEach(chart => {
+        if (chart && chart.update) {
+            chart.options.color = colores.textColor;
+            chart.options.borderColor = colores.borderColor;
+            chart.update('none');
+        }
+    });
+}
+
+// Inicializar defaults
+aplicarGlobalChartDefaults();
 
 /**
  * Renderiza todas las gráficas del dashboard
@@ -83,8 +108,8 @@ function renderizarChartTiposAtaque(tipos) {
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(10, 10, 30, 0.95)',
-                    borderColor: '#00ff9f',
+                    backgroundColor: obtenerColoresChart().tooltipBg,
+                    borderColor: obtenerColoresChart().tooltipBorder,
                     borderWidth: 1,
                     titleFont: { family: "'Orbitron', sans-serif", size: 11 },
                     bodyFont: { family: "'Share Tech Mono', monospace", size: 11 },
@@ -104,6 +129,10 @@ function renderizarChartTiposAtaque(tipos) {
             }
         }
     });
+}
+
+function actualizarChartsTheme() {
+    aplicarGlobalChartDefaults();
 }
 
 /**
@@ -178,13 +207,13 @@ function renderizarChartTimeline(timeline) {
             },
             scales: {
                 x: {
-                    grid: { color: 'rgba(26, 26, 62, 0.3)' },
+                    grid: { color: obtenerColoresChart().gridColor },
                     ticks: { maxRotation: 45, font: { size: 9 } }
                 },
                 y: {
                     stacked: true,
                     beginAtZero: true,
-                    grid: { color: 'rgba(26, 26, 62, 0.3)' },
+                    grid: { color: obtenerColoresChart().gridColor },
                     ticks: { precision: 0, font: { size: 10 } }
                 }
             },
@@ -195,8 +224,8 @@ function renderizarChartTimeline(timeline) {
                     labels: { boxWidth: 10, font: { size: 9 }, usePointStyle: true }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(10, 10, 30, 0.95)',
-                    borderColor: '#00ff9f',
+                    backgroundColor: obtenerColoresChart().tooltipBg,
+                    borderColor: obtenerColoresChart().tooltipBorder,
                     borderWidth: 1,
                     padding: 10,
                     callbacks: {
@@ -271,8 +300,8 @@ function renderizarChartOS(osData) {
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(10, 10, 30, 0.95)',
-                    borderColor: '#00d4ff',
+                    backgroundColor: obtenerColoresChart().tooltipBg,
+                    borderColor: obtenerColoresChart().tooltipBorder,
                     borderWidth: 1,
                     padding: 10,
                 }
@@ -315,7 +344,7 @@ function renderizarChartBrowsers(browsersData) {
             scales: {
                 x: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(26, 26, 62, 0.3)' },
+                    grid: { color: obtenerColoresChart().gridColor },
                     ticks: { precision: 0, font: { size: 10 } }
                 },
                 y: {
@@ -326,8 +355,8 @@ function renderizarChartBrowsers(browsersData) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(10, 10, 30, 0.95)',
-                    borderColor: '#00d4ff',
+                    backgroundColor: obtenerColoresChart().tooltipBg,
+                    borderColor: obtenerColoresChart().tooltipBorder,
                     borderWidth: 1,
                     padding: 10,
                 }

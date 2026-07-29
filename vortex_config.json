@@ -1,0 +1,12 @@
+{
+    "modelo": "Qwen/Qwen2.5-1.5B-Instruct",
+    "temperatura": 0.2,
+    "temperatura_chat": 0.6,
+    "top_p": 0.9,
+    "max_tokens": 300,
+    "max_tokens_chat": 200,
+    "max_tokens_reporte": 600,
+    "repeticion_penalidad": 1.2,
+    "voz_habilitada": true,
+    "ruta_logs": "writable/logs/security_audit.log"
+}

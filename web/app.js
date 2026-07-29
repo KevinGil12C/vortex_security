@@ -13,47 +13,58 @@ const VORTEX = {
     mapaInicializado: false,
     consolaLineas: [],
     maxConsolaLineas: 200,
-    viewMode: 'top', // 'top' por defecto como solicitó el usuario
+    viewMode: 'top',
     paginacion: {
         ips: { limite: 20, filtro: '' },
         uris: { limite: 20, filtro: '' }
-    }
+    },
+    theme: 'dark',
+    flatpickrs: { start: null, end: null }
 };
 
 // ══════════════════════════════════════════════════════════════
-// BOOT SEQUENCE
+// BOOT SEQUENCE - Particle Shatter / Reconstruct
 // ══════════════════════════════════════════════════════════════
 
 const BOOT_MESSAGES = [
-    { text: '> ARRANCANDO VORTEX CORE...', delay: 400 },
-    { text: '> INICIALIZANDO SISTEMA DE DEFENSA...', delay: 600 },
-    { text: '> CARGANDO RED NEURONAL...', delay: 500 },
-    { text: '> CALIBRANDO DETECCIÓN DE AMENAZAS...', delay: 450 },
-    { text: '> ESTABLECIENDO ENLACE SEGURO...', delay: 500 },
-    { text: '> ACTIVANDO VIGILANCIA OJO DE DIOS...', delay: 550 },
-    { text: '> CARGANDO MODELOS DE MACHINE LEARNING...', delay: 400 },
-    { text: '> SISTEMA LISTO ✓', delay: 300 },
+    { text: '> ARRANCANDO VORTEX CORE...', delay: 350 },
+    { text: '> INICIALIZANDO SISTEMA DE DEFENSA...', delay: 500 },
+    { text: '> CARGANDO RED NEURONAL...', delay: 450 },
+    { text: '> CALIBRANDO DETECCIÓN DE AMENAZAS...', delay: 400 },
+    { text: '> ESTABLECIENDO ENLACE SEGURO...', delay: 450 },
+    { text: '> ACTIVANDO VIGILANCIA OJO DE DIOS...', delay: 500 },
+    { text: '> CARGANDO MODELOS DE MACHINE LEARNING...', delay: 350 },
+    { text: '> SISTEMA LISTO <span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span>', delay: 200 },
 ];
 
+let bootParticleAnim = null;
+
 async function ejecutarBootSequence() {
+    const canvas = document.getElementById('boot-canvas');
+    if (canvas) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const ctx = canvas.getContext('2d');
+        bootParticleAnim = new BootParticleAnimation(ctx, canvas);
+        bootParticleAnim.iniciar();
+    }
+
     const terminal = document.getElementById('boot-terminal');
     const progressBar = document.getElementById('boot-progress-bar');
+    const pctEl = document.getElementById('boot-pct');
     const totalSteps = BOOT_MESSAGES.length;
 
     for (let i = 0; i < totalSteps; i++) {
         const msg = BOOT_MESSAGES[i];
 
-        // Crear línea
         const line = document.createElement('div');
         line.className = 'boot-line';
         line.innerHTML = `${msg.text}`;
         terminal.appendChild(line);
 
-        // Hacer visible con animación
-        await sleep(100);
+        await sleep(80);
         line.classList.add('visible');
 
-        // Agregar cursor solo a la última línea
         const prevCursors = terminal.querySelectorAll('.cursor');
         prevCursors.forEach(c => c.remove());
         if (i < totalSteps - 1) {
@@ -62,36 +73,194 @@ async function ejecutarBootSequence() {
             line.appendChild(cursor);
         }
 
-        // Actualizar barra de progreso
         const progreso = ((i + 1) / totalSteps) * 100;
         progressBar.style.width = `${progreso}%`;
+        if (pctEl) pctEl.textContent = `${Math.round(progreso)}%`;
 
         await sleep(msg.delay);
     }
 
-    // Esperar un momento antes de transicionar
-    await sleep(800);
+    await sleep(600);
 
-    // Ocultar boot screen
+    if (bootParticleAnim) {
+        bootParticleAnim.finalizar();
+    }
+
     document.getElementById('boot-screen').classList.add('hidden');
 
-    // Mostrar UI principal
     document.getElementById('main-header').style.display = '';
     document.getElementById('main-content').style.display = '';
     document.getElementById('main-footer').style.display = '';
 
-    // NO inicializar el mapa aquí: su contenedor (content-section) está
-    // oculto (display:none) y Leaflet no puede calcular el tamaño de los tiles.
-    // Se inicializa cuando renderizarDashboard() muestra la sección.
-
-    // Iniciar reloj
     actualizarReloj();
     setInterval(actualizarReloj, 1000);
 
-    // Evento de voz: Inicio de sistema
     setTimeout(() => {
         VortexVoz.eventoInicioSistema();
     }, 1000);
+}
+
+// ══════════════════════════════════════════════════════════════
+// BOOT PARTICLE ANIMATION (Shatter / Reconstruct)
+// ══════════════════════════════════════════════════════════════
+
+class BootParticleAnimation {
+    constructor(ctx, canvas) {
+        this.ctx = ctx;
+        this.canvas = canvas;
+        this.particles = [];
+        this.targets = [];
+        this.fase = 0; // 0=formando, 1=shatter, 2=flotando, 3=reconstruyendo, 4=brillo
+        this.tiempoFase = 0;
+        this.activo = true;
+        this.texto = 'VORTEX';
+    }
+
+    async iniciar() {
+        this._generarParticulasDesdeTexto();
+        this._loop();
+        this._secuenciaFases();
+    }
+
+    _generarParticulasDesdeTexto() {
+        const offscreen = document.createElement('canvas');
+        offscreen.width = 400;
+        offscreen.height = 120;
+        const offCtx = offscreen.getContext('2d');
+
+        offCtx.fillStyle = '#fff';
+        offCtx.font = 'bold 80px Orbitron, sans-serif';
+        offCtx.textAlign = 'center';
+        offCtx.textBaseline = 'middle';
+        offCtx.fillText(this.texto, offscreen.width / 2, offscreen.height / 2);
+
+        const imageData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
+        const data = imageData.data;
+
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height * 0.25;
+        const scale = Math.min(this.canvas.width / 600, 1.5);
+        const step = 2;
+
+        this.particles = [];
+        this.targets = [];
+
+        for (let y = 0; y < offscreen.height; y += step) {
+            for (let x = 0; x < offscreen.width; x += step) {
+                const i = (y * offscreen.width + x) * 4;
+                if (data[i + 3] > 128) {
+                    const px = centerX + (x - offscreen.width / 2) * scale;
+                    const py = centerY + (y - offscreen.height / 2) * scale;
+                    this.particles.push({
+                        x: px, y: py,
+                        tx: px, ty: py,
+                        vx: 0, vy: 0,
+                        size: 1.5 + Math.random() * 1.5,
+                        alpha: 0,
+                        color: `hsl(${150 + Math.random() * 30}, 100%, ${55 + Math.random() * 30}%)`,
+                    });
+                    this.targets.push({ x: px, y: py });
+                }
+            }
+        }
+    }
+
+    _loop() {
+        if (!this.activo) return;
+        this._actualizar();
+        this._dibujar();
+        requestAnimationFrame(() => this._loop());
+    }
+
+    _actualizar() {
+        const dt = 1;
+        this.tiempoFase += dt / 60;
+
+        for (const p of this.particles) {
+            const targetAlpha = this.fase >= 4 ? 0 : 1;
+            p.alpha += (targetAlpha - p.alpha) * 0.05;
+
+            if (this.fase === 0) {
+                p.vx += (p.tx - p.x) * 0.08;
+                p.vy += (p.ty - p.y) * 0.08;
+            } else if (this.fase === 1) {
+                const angle = Math.atan2(p.y - this.canvas.height / 2, p.x - this.canvas.width / 2);
+                const speed = 8 + Math.random() * 12;
+                p.vx += Math.cos(angle) * speed * 0.3;
+                p.vy += Math.sin(angle) * speed * 0.3 - 2;
+                p.vy += 0.1;
+            } else if (this.fase === 2) {
+                p.vx += (Math.random() - 0.5) * 0.5;
+                p.vy += (Math.random() - 0.5) * 0.5;
+                p.vy += 0.05;
+            } else if (this.fase === 3) {
+                const dx = p.tx - p.x;
+                const dy = p.ty - p.y;
+                p.vx += dx * 0.06;
+                p.vy += dy * 0.06;
+            }
+
+            p.vx *= 0.95;
+            p.vy *= 0.95;
+            p.x += p.vx;
+            p.y += p.vy;
+        }
+    }
+
+    _dibujar() {
+        const { ctx, canvas } = this;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (this.fase === 4) {
+            ctx.fillStyle = 'rgba(0, 255, 159, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        for (const p of this.particles) {
+            ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = '#00ff9f';
+            ctx.shadowBlur = this.fase === 3 ? 6 + Math.sin(Date.now() * 0.01) * 3 : 2;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+
+        if (this.fase === 4) {
+            ctx.fillStyle = '#00ff9f';
+            ctx.shadowColor = '#00ff9f';
+            ctx.shadowBlur = 40;
+            ctx.font = 'bold 60px Orbitron, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.005) * 0.3;
+            ctx.fillText(this.texto, canvas.width / 2, canvas.height * 0.26);
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    async _secuenciaFases() {
+        await sleep(800);
+        this.fase = 1;
+        await sleep(1200);
+        this.fase = 2;
+        await sleep(1000);
+        this.fase = 3;
+        await sleep(1200);
+        this.fase = 4;
+    }
+
+    async finalizar() {
+        this.activo = false;
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -100,6 +269,110 @@ async function ejecutarBootSequence() {
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
+}
+
+// ══════════════════════════════════════════════════════════════
+// THEME TOGGLE (Modo Claro / Oscuro)
+// ══════════════════════════════════════════════════════════════
+
+function inicializarTheme() {
+    const saved = localStorage.getItem('vortex-theme') || 'dark';
+    aplicarTheme(saved);
+}
+
+function aplicarTheme(theme) {
+    VORTEX.theme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('vortex-theme', theme);
+
+    const icon = document.getElementById('theme-toggle-icon');
+    const label = document.getElementById('theme-toggle-label');
+    if (theme === 'light') {
+        icon.textContent = 'light_mode';
+        label.textContent = 'CLARO';
+    } else {
+        icon.textContent = 'dark_mode';
+        label.textContent = 'OSCURO';
+    }
+
+    // Update chart theme
+    if (typeof actualizarChartsTheme === 'function') {
+        actualizarChartsTheme();
+    }
+
+    // Re-render charts if data exists
+    if (VORTEX.datos && typeof renderizarGraficas === 'function') {
+        setTimeout(() => renderizarGraficas(VORTEX.datos), 100);
+    }
+}
+
+function toggleTheme() {
+    const nuevo = VORTEX.theme === 'dark' ? 'light' : 'dark';
+    aplicarTheme(nuevo);
+    mostrarToast(`Modo ${nuevo === 'light' ? 'claro' : 'oscuro'} activado`, 'info');
+}
+
+// ══════════════════════════════════════════════════════════════
+// FLATPICKR - Calendario Visual
+// ══════════════════════════════════════════════════════════════
+
+function inicializarDatepickers() {
+    if (typeof flatpickr === 'undefined') {
+        console.warn('[VORTEX] Flatpickr no disponible');
+        return;
+    }
+
+    const localeES = {
+        months: {
+            shorthand: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
+            longhand: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+        },
+        weekdays: {
+            shorthand: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
+            longhand: ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
+        },
+        rangeSeparator: ' a ',
+        firstDayOfWeek: 1
+    };
+
+    const opts = {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        time_24hr: true,
+        allowInput: true,
+        animate: true,
+        locale: localeES,
+        onChange: function(selectedDates, dateStr, instance) {
+            instance.element.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    };
+
+    const startInput = document.getElementById('filter-date-start');
+    const endInput = document.getElementById('filter-date-end');
+
+    if (startInput) {
+        VORTEX.flatpickrs.start = flatpickr(startInput, {
+            ...opts,
+            placeholder: 'Fecha inicio...',
+            defaultDate: null
+        });
+    }
+
+    if (endInput) {
+        VORTEX.flatpickrs.end = flatpickr(endInput, {
+            ...opts,
+            placeholder: 'Fecha fin...',
+            defaultDate: null
+        });
+    }
+}
+
+function actualizarThemeFlatpickr() {
+    const isLight = VORTEX.theme === 'light';
+    const calClass = isLight ? 'flatpickr-light' : '';
+    document.querySelectorAll('.flatpickr-calendar').forEach(el => {
+        el.style.backgroundColor = isLight ? '#fff' : '#0d0d24';
+    });
 }
 
 function actualizarReloj() {
@@ -116,7 +389,7 @@ function mostrarToast(mensaje, tipo = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast toast-${tipo}`;
-    toast.textContent = mensaje;
+    toast.innerHTML = mensaje;
     container.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -141,7 +414,7 @@ function agregarLineaConsola(severity, mensaje) {
     line.innerHTML = `
         <span class="console-time">[${time}]</span>
         <span class="console-severity ${severityClass}">${severity}</span>
-        <span class="console-msg">${escapeHtml(mensaje)}</span>
+        <span class="console-msg">${mensaje}</span>
     `;
 
     consola.appendChild(line);
@@ -284,6 +557,14 @@ function inicializarIngesta() {
         try { eel.toggle_voz()(); } catch (e) { }
     });
 
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+    // Voice selector
+    document.getElementById('voice-selector')?.addEventListener('change', (e) => {
+        VortexVoz.seleccionarVoz(e.target.value);
+    });
+
     // Limpiar consola
     document.getElementById('btn-clear-console').addEventListener('click', () => {
         const consola = document.getElementById('live-console');
@@ -327,7 +608,6 @@ function autoDetectFechas(silent = false) {
     const dates = [];
     const regex = /\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/;
     
-    // Para ser eficientes con logs enormes, leemos algunas al principio y final
     lines.forEach(l => {
         const match = l.match(regex);
         if (match) dates.push(match[1]);
@@ -335,13 +615,22 @@ function autoDetectFechas(silent = false) {
     
     if (dates.length > 0) {
         dates.sort();
-        const start = dates[0].replace(' ', 'T').substring(0, 16);
-        const end = dates[dates.length - 1].replace(' ', 'T').substring(0, 16);
-        document.getElementById('filter-date-start').value = start;
-        document.getElementById('filter-date-end').value = end;
+        const startStr = dates[0].substring(0, 16);
+        const endStr = dates[dates.length - 1].substring(0, 16);
+        
+        // Usar Flatpickr si está disponible
+        if (VORTEX.flatpickrs.start && VORTEX.flatpickrs.end) {
+            VORTEX.flatpickrs.start.setDate(startStr, true);
+            VORTEX.flatpickrs.end.setDate(endStr, true);
+        } else {
+            // Fallback
+            document.getElementById('filter-date-start').value = startStr;
+            document.getElementById('filter-date-end').value = endStr;
+        }
+        
         if (!silent) {
             mostrarToast('Rango de fechas detectado automáticamente', 'info');
-            agregarLineaConsola('INFO', `Rango detectado: ${start} a ${end}`);
+            agregarLineaConsola('INFO', `Rango detectado: ${startStr} a ${endStr}`);
         }
     } else {
         if (!silent) mostrarToast('No se encontraron fechas válidas en los logs', 'warning');
@@ -439,7 +728,7 @@ async function ejecutarAnalisis(textoLogs) {
     const linesCount = (textoLogs.match(/\n/g) || []).length + 1;
     VortexVoz.eventoInicioAnalisis(linesCount);
 
-    agregarLineaConsola('INFO', '⚡ Iniciando análisis de seguridad...');
+    agregarLineaConsola('INFO', '<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">bolt</span> Iniciando análisis de seguridad...');
 
     // Limpiar resultados previos
     if (document.getElementById('ia-report-content')) document.getElementById('ia-report-content').innerHTML = '';
@@ -465,7 +754,7 @@ async function ejecutarAnalisis(textoLogs) {
     let pasoActual = 0;
     const intervalo = setInterval(() => {
         if (pasoActual < pasos.length) {
-            progressText.textContent = `⚡ ${pasos[pasoActual]}`;
+            progressText.innerHTML = `<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">bolt</span> ${pasos[pasoActual]}`;
             agregarLineaConsola('INFO', pasos[pasoActual]);
             pasoActual++;
         }
@@ -502,8 +791,8 @@ async function ejecutarAnalisis(textoLogs) {
         document.getElementById('btn-export-csv').disabled = false;
         document.getElementById('btn-export-json').disabled = false;
 
-        mostrarToast('✅ Análisis completado exitosamente', 'success');
-        agregarLineaConsola('INFO', `✅ Análisis completo: ${datos.resumen.total_logs} logs, ${datos.resumen.total_amenazas} amenazas`);
+        mostrarToast('<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Análisis completado exitosamente', 'success');
+        agregarLineaConsola('INFO', `<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Análisis completo: ${datos.resumen.total_logs} logs, ${datos.resumen.total_amenazas} amenazas`);
 
         // Evento de voz: Resumen
         VortexVoz.eventoResumenFinal(datos.resumen);
@@ -525,7 +814,7 @@ function resetearAnalisis() {
     VORTEX.analizando = false;
     const btnAnalyze = document.getElementById('btn-analyze');
     btnAnalyze.disabled = false;
-    btnAnalyze.innerHTML = '⚡ Iniciar Análisis';
+    btnAnalyze.innerHTML = '<span class="mat-icon mat-icon-sm">bolt</span> Iniciar Análisis';
     document.getElementById('analysis-progress').classList.remove('active');
 }
 
@@ -550,33 +839,66 @@ function renderizarDashboard(datos) {
         VORTEX.paginacion.uris.limite = 20;
     }
 
-    // ── Métricas Sincronizadas por Modo ──
-    if (VORTEX.viewMode === 'top') {
-        const amenazasFiltradas = (datos.amenazas || []).slice(0, 20);
-        const ipsFiltradas = (datos.top_ips || []).slice(0, 20);
-        const urisFiltradas = (datos.top_uris || []).slice(0, 20);
+    // ── Calcular métricas consistentes (nunca más amenazas que logs) ──
+    const totalLogs = resumen.total_logs || 0;
+    const totalAmenazas = Math.min(resumen.total_amenazas || 0, totalLogs);
+    const ipsUnicas = resumen.ips_unicas || 0;
+    const ipsBaneadas = Math.min(resumen.ips_baneadas || 0, ipsUnicas);
 
-        animarNumero('m-total-logs', Math.min(resumen.total_logs || 0, 500)); // Cap simbólico
-        animarNumero('m-amenazas', amenazasFiltradas.length);
+    if (VORTEX.viewMode === 'top') {
+        const ipsFiltradas = (datos.top_ips || []).slice(0, 20);
+        const anomaliasFiltradas = (datos.anomalias?.puntos || []).slice(0, 10);
+
+        animarNumero('m-total-logs', Math.min(totalLogs, 500));
+        animarNumero('m-amenazas', Math.min(totalAmenazas, 500));
         animarNumero('m-ips', ipsFiltradas.length);
         animarNumero('m-baneadas', ipsFiltradas.filter(i => i.baneada).length);
-
-        const anomaliasFiltradas = (datos.anomalias?.puntos || []).slice(0, 10);
         animarNumero('m-anomalias', anomaliasFiltradas.length);
     } else {
-        animarNumero('m-total-logs', resumen.total_logs || 0);
-        animarNumero('m-amenazas', resumen.total_amenazas || 0);
-        animarNumero('m-ips', resumen.ips_unicas || 0);
-        animarNumero('m-baneadas', resumen.ips_baneadas || 0);
-
-        const anomalias = datos.anomalias || {};
-        animarNumero('m-anomalias', anomalias.total_anomalias || 0);
+        animarNumero('m-total-logs', totalLogs);
+        animarNumero('m-amenazas', totalAmenazas);
+        animarNumero('m-ips', ipsUnicas);
+        animarNumero('m-baneadas', ipsBaneadas);
+        animarNumero('m-anomalias', (datos.anomalias?.total_anomalias || 0));
     }
 
     animarNumero('m-score', resumen.score_riesgo || 0);
 
     const nivel = resumen.nivel_riesgo || 'BAJO';
     document.getElementById('m-nivel').textContent = `NIVEL: ${nivel}`;
+
+    // ── Sub-métricas enriquecidas ──
+    const severidades = datos.severidades || {};
+    const sevParts = [];
+    ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].forEach(s => {
+        if (severidades[s]) sevParts.push(`${s.slice(0,4)}:${severidades[s]}`);
+    });
+    const subLogs = document.getElementById('m-total-logs-sub');
+    if (subLogs) subLogs.textContent = sevParts.join(' | ');
+
+    const subAmenazas = document.getElementById('m-amenazas-sub');
+    if (subAmenazas) {
+        const pct = totalLogs > 0 ? ((totalAmenazas / totalLogs) * 100).toFixed(1) : 0;
+        subAmenazas.textContent = `${pct}% del total`;
+    }
+
+    const subIps = document.getElementById('m-ips-sub');
+    if (subIps) {
+        const urisUnicas = resumen.uris_unicas || 0;
+        subIps.textContent = `URIs: ${urisUnicas}`;
+    }
+
+    const subBaneadas = document.getElementById('m-baneadas-sub');
+    if (subBaneadas) {
+        const pctB = ipsUnicas > 0 ? ((ipsBaneadas / ipsUnicas) * 100).toFixed(1) : 0;
+        subBaneadas.textContent = `${pctB}% de IPs`;
+    }
+
+    const subAnomalias = document.getElementById('m-anomalias-sub');
+    if (subAnomalias && datos.anomalias) {
+        const pctA = totalLogs > 0 ? (((datos.anomalias.total_anomalias || 0) / totalLogs) * 100).toFixed(1) : 0;
+        subAnomalias.textContent = `${pctA}% de logs`;
+    }
 
     const scoreEl = document.getElementById('m-score');
     const score = resumen.score_riesgo || 0;
@@ -669,14 +991,25 @@ function renderizarTablaIPs(ips) {
     const ipsFiltradas = ips.filter(ip => ip.ip.toLowerCase().includes(filtro));
     const limite = VORTEX.viewMode === 'full' ? 5000 : VORTEX.paginacion.ips.limite;
 
+    // Geo lookup
+    const geoPuntos = (VORTEX.datos?.geo_data?.puntos) || [];
+    const geoMap = {};
+    geoPuntos.forEach(p => { geoMap[p.ip] = p; });
+
     tbody.innerHTML = '';
     ipsFiltradas.slice(0, limite).forEach(ip => {
         const tr = document.createElement('tr');
         const estado = ip.baneada ? '<span class="badge badge-banned">BAN</span>' : obtenerBadgeSeveridad(ip.severidad);
+        const geo = geoMap[ip.ip] || {};
+        const pais = geo.pais || '--';
+        const tiposStr = (ip.tipos || []).slice(0, 3).join(', ');
+        const tiposFull = (ip.tipos || []).join(', ');
         tr.innerHTML = `
-            <td title="${ip.tipos ? ip.tipos.join(', ') : ''}">${ip.ip}</td>
+            <td title="${ip.ip}">${ip.ip}</td>
+            <td><span class="td-country">${pais}</span></td>
             <td>${ip.count}</td>
             <td>${ip.score}</td>
+            <td class="td-tipos" title="${escapeHtml(tiposFull)}">${escapeHtml(tiposStr || '--')}</td>
             <td>${estado}</td>
         `;
         tbody.appendChild(tr);
@@ -689,11 +1022,30 @@ function renderizarTablaTipos(tipos) {
     const tbody = document.querySelector('#table-attack-types tbody');
     tbody.innerHTML = '';
 
+    const totalAtaques = tipos.reduce((s, t) => s + t.count, 0) || 1;
+    const amenazas = VORTEX.datos?.amenazas || [];
+    const tipoSevMap = {};
+    amenazas.forEach(a => {
+        const t = a.tipo || 'DESCONOCIDO';
+        if (!tipoSevMap[t]) tipoSevMap[t] = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+        const sev = a.severidad || 'INFO';
+        if (tipoSevMap[t][sev] !== undefined) tipoSevMap[t][sev]++;
+    });
+
     tipos.forEach(tipo => {
         const tr = document.createElement('tr');
+        const pct = ((tipo.count / totalAtaques) * 100).toFixed(1);
+        const sevDist = tipoSevMap[tipo.tipo] || {};
+        const sevParts = [];
+        ['CRITICAL','HIGH','MEDIUM'].forEach(s => {
+            if (sevDist[s]) sevParts.push(`<span class="badge ${s === 'CRITICAL' ? 'badge-critical' : s === 'HIGH' ? 'badge-high' : 'badge-medium'}">${s.slice(0,4)}:${sevDist[s]}</span>`);
+        });
+        const sevHtml = sevParts.length ? sevParts.join(' ') : '<span class="badge badge-info">--</span>';
         tr.innerHTML = `
-            <td>${tipo.tipo}</td>
+            <td><strong>${escapeHtml(tipo.tipo)}</strong></td>
             <td>${tipo.count}</td>
+            <td>${pct}%</td>
+            <td class="td-badges">${sevHtml}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -705,13 +1057,35 @@ function renderizarTablaURIs(uris) {
     const urisFiltradas = uris.filter(u => u.uri.toLowerCase().includes(filtro));
     const limite = VORTEX.viewMode === 'full' ? 5000 : VORTEX.paginacion.uris.limite;
 
+    // Aggregate severity and method data from all threats
+    const amenazas = VORTEX.datos?.amenazas || [];
+    const uriStats = {};
+    amenazas.forEach(a => {
+        const key = a.uri;
+        if (!uriStats[key]) uriStats[key] = { metodos: {}, sevs: {}, tipos: {} };
+        uriStats[key].metodos[a.metodo || 'GET'] = (uriStats[key].metodos[a.metodo || 'GET'] || 0) + 1;
+        uriStats[key].sevs[a.severidad || 'INFO'] = (uriStats[key].sevs[a.severidad || 'INFO'] || 0) + 1;
+        if (a.tipo) uriStats[key].tipos[a.tipo] = (uriStats[key].tipos[a.tipo] || 0) + 1;
+    });
+
     tbody.innerHTML = '';
     urisFiltradas.slice(0, limite).forEach(u => {
         const tr = document.createElement('tr');
-        const uriText = u.uri.length > 40 ? u.uri.substring(0, 37) + '...' : u.uri; // Reverted to original logic
+        const uriText = u.uri.length > 40 ? u.uri.substring(0, 37) + '...' : u.uri;
+        const stats = uriStats[u.uri] || {};
+        const sevEntries = Object.entries(stats.sevs || {});
+        const sevBadges = sevEntries.length
+            ? sevEntries.sort((a, b) => b[1] - a[1]).slice(0, 2).map(([s, c]) => {
+                const cls = s === 'CRITICAL' ? 'badge-critical' : s === 'HIGH' ? 'badge-high' : s === 'MEDIUM' ? 'badge-medium' : 'badge-info';
+                return `<span class="badge ${cls}">${s.slice(0,4)}:${c}</span>`;
+            }).join(' ')
+            : '<span class="badge badge-info">INFO</span>';
+        const tiposList = Object.entries(stats.tipos || {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t]) => t).join(', ');
         tr.innerHTML = `
             <td title="${escapeHtml(u.uri)}">${escapeHtml(uriText)}</td>
             <td>${u.count}</td>
+            <td class="td-badges">${sevBadges}</td>
+            <td class="td-tipos" title="${escapeHtml(Object.entries(stats.tipos || {}).map(([t,c]) => `${t}(${c})`).join(', '))}">${escapeHtml(tiposList || '--')}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -728,16 +1102,35 @@ function renderizarPerfilesAtacantes(perfiles) {
     const limite = VORTEX.viewMode === 'full' ? 500 : 10;
     const filtrados = (perfiles || []).slice(0, limite);
 
+    // Geo lookup
+    const geoPuntos = (VORTEX.datos?.geo_data?.puntos) || [];
+    const geoMap = {};
+    geoPuntos.forEach(p => { geoMap[p.ip] = p; });
+
+    // Find last activity for each IP from amenazas
+    const amenazas = VORTEX.datos?.amenazas || [];
+    const lastSeen = {};
+    amenazas.forEach(a => {
+        if (a.ip && a.fecha) {
+            if (!lastSeen[a.ip] || a.fecha > lastSeen[a.ip]) lastSeen[a.ip] = a.fecha;
+        }
+    });
+
     filtrados.forEach(p => {
         const tr = document.createElement('tr');
         const estado = p.baneada ? '<span class="badge badge-banned">BANEADA</span>' : '<span class="badge badge-high">ACTIVA</span>';
+        const geo = geoMap[p.ip] || {};
+        const pais = geo.pais || '--';
+        const lastAct = lastSeen[p.ip] ? lastSeen[p.ip].substring(0, 16) : '--';
+        const confClass = p.score_riesgo >= 80 ? 'badge-critical' : p.score_riesgo >= 50 ? 'badge-high' : 'badge-info';
         tr.innerHTML = `
             <td>${p.ip}</td>
-            <td>${p.score_riesgo}</td>
+            <td><span class="td-country">${pais}</span></td>
+            <td><span class="badge ${confClass}">${p.score_riesgo}</span></td>
             <td>${p.total_requests}</td>
             <td>${p.clasificacion}</td>
-            <td>${(p.tipos_ataque || []).join(', ')}</td>
-            <td>${estado}</td>
+            <td class="td-tipos" title="${escapeHtml((p.tipos_ataque || []).join(', '))}">${escapeHtml((p.tipos_ataque || []).slice(0, 2).join(', ') || '--')}</td>
+            <td>${estado} <span class="td-time">${lastAct}</span></td>
         `;
         tbody.appendChild(tr);
     });
@@ -753,7 +1146,7 @@ async function generarPDF() {
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Procesando...';
-    agregarLineaConsola('INFO', '📄 Iniciando motor de generación PDF...');
+    agregarLineaConsola('INFO', '<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">picture_as_pdf</span> Iniciando motor de generación PDF...');
 
     try {
         let mapaBase64 = null;
@@ -762,7 +1155,7 @@ async function generarPDF() {
             if (mapContainer && typeof html2canvas !== 'undefined') {
                 const canvas = await html2canvas(mapContainer, { useCORS: true, logging: false });
                 mapaBase64 = canvas.toDataURL('image/png');
-                agregarLineaConsola('INFO', '📸 Mapa táctico capturado exitosamente.');
+                agregarLineaConsola('INFO', '<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">map</span> Mapa táctico capturado exitosamente.');
             }
         } catch (err) {
             console.warn("No se pudo capturar el mapa:", err);
@@ -787,7 +1180,7 @@ async function generarPDF() {
                 os: capturarConFondo('chart-os'),
                 browsers: capturarConFondo('chart-browsers')
             };
-            agregarLineaConsola('INFO', '📊 Gráficos visuales capturados exitosamente.');
+            agregarLineaConsola('INFO', '<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">bar_chart</span> Gráficos visuales capturados exitosamente.');
         } catch (err) {
             console.warn("No se pudo capturar gráficos:", err);
         }
@@ -796,8 +1189,8 @@ async function generarPDF() {
         const data = JSON.parse(result);
 
         if (data.exito) {
-            mostrarToast(`✅ ${data.msg || 'Reporte guardado'}`, 'success');
-            agregarLineaConsola('INFO', `✅ Reporte exportado: ${data.archivo}`);
+            mostrarToast(`<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> ${data.msg || 'Reporte guardado'}`, 'success');
+            agregarLineaConsola('INFO', `<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Reporte exportado: ${data.archivo}`);
             VortexVoz.eventoReporteGenerado();
         } else if (data.cancelado) {
             mostrarToast('Exportación cancelada por el operador', 'info');
@@ -822,9 +1215,9 @@ async function generarInformeIA(usarReglas = false) {
     btn.innerHTML = '<span class="spinner"></span> Generando...';
 
     if (usarReglas) {
-        agregarLineaConsola('INFO', '📋 Generando informe rápido basado en reglas...');
+        agregarLineaConsola('INFO', '<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">rule</span> Generando informe rápido basado en reglas...');
     } else {
-        agregarLineaConsola('INFO', '🤖 Generando informe profundo de IA...');
+        agregarLineaConsola('INFO', '<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">smart_toy</span> Generando informe profundo de IA...');
     }
 
     try {
@@ -832,10 +1225,10 @@ async function generarInformeIA(usarReglas = false) {
         const data = JSON.parse(result);
 
         if (data.informe_ejecutivo) {
-            document.getElementById('ia-report-content').textContent = data.informe_ejecutivo;
+            document.getElementById('ia-report-content').innerHTML = data.informe_ejecutivo;
             document.getElementById('btn-voice-briefing').disabled = false;
-            mostrarToast(`✅ Informe IA generado (${data.generado_por})`, 'success');
-            agregarLineaConsola('INFO', `✅ Informe IA generado por: ${data.generado_por}`);
+            mostrarToast(`<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Informe IA generado (${data.generado_por})`, 'success');
+            agregarLineaConsola('INFO', `<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Informe IA generado por: ${data.generado_por}`);
             document.getElementById('ia-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else if (data.error) {
             mostrarToast(`Error: ${data.error}`, 'error');
@@ -867,6 +1260,10 @@ async function actualizarEstadoIA() {
             dot.className = 'ia-status-dot online';
             msg.textContent = 'IA LLM: Cargada (Activa)';
             btn.style.display = 'none';
+            if (typeof VortexChat !== 'undefined') {
+                VortexChat.iaDisponible = true;
+                document.getElementById('vortex-chat-status-text').textContent = 'IA neural en línea.';
+            }
         } else {
             dot.className = 'ia-status-dot';
             msg.textContent = 'IA LLM: No cargada';
@@ -890,7 +1287,7 @@ async function cargarModeloIA() {
     dot.className = 'ia-status-dot loading';
     msg.textContent = 'IA LLM: Cargando modelo (1GB+)...';
 
-    agregarLineaConsola('INFO', '🤖 Iniciando descarga/carga de modelo IA local. Esto puede tardar varios minutos...');
+    agregarLineaConsola('INFO', '<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">smart_toy</span> Iniciando descarga/carga de modelo IA local. Esto puede tardar varios minutos...');
     mostrarToast('Iniciando carga de modelo IA (1GB+). Por favor espera.', 'info');
 
     try {
@@ -898,10 +1295,14 @@ async function cargarModeloIA() {
         const data = JSON.parse(result);
 
         if (data.cargado) {
-            mostrarToast('✅ Modelo IA cargado exitosamente', 'success');
-            agregarLineaConsola('INFO', `✅ Modelo IA ${data.modelo} cargado y listo.`);
+            mostrarToast('<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Modelo IA cargado exitosamente', 'success');
+            agregarLineaConsola('INFO', `<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Modelo IA ${data.modelo} cargado y listo.`);
+            if (typeof VortexChat !== 'undefined') {
+                VortexChat.iaDisponible = true;
+                document.getElementById('vortex-chat-status-text').textContent = 'IA neural en línea.';
+            }
         } else {
-            mostrarToast('❌ Error al cargar modelo IA', 'error');
+            mostrarToast('<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">error</span> Error al cargar modelo IA', 'error');
             agregarLineaConsola('CRITICAL', `Error IA: ${data.error}`);
         }
     } catch (e) {
@@ -916,13 +1317,14 @@ async function cargarModeloIA() {
 // ══════════════════════════════════════════════════════════════
 
 const VortexVoz = {
-    vozEspanol: null,
+    vozActual: null,
+    vocesDisponibles: [],
     habilitada: true,
     cola: [],
     hablando: false,
 
     /**
-     * Inicializa el sistema de voz buscando una voz en español
+     * Inicializa el sistema de voz
      */
     inicializar() {
         if (!('speechSynthesis' in window)) {
@@ -931,22 +1333,11 @@ const VortexVoz = {
         }
 
         const cargarVoces = () => {
-            const voces = speechSynthesis.getVoices();
-            // Buscar voz en español (preferir es-MX, luego es-ES, luego cualquier es-)
-            this.vozEspanol = voces.find(v => v.lang === 'es-MX') ||
-                voces.find(v => v.lang === 'es-ES') ||
-                voces.find(v => v.lang.startsWith('es')) ||
-                voces.find(v => v.lang === 'es') ||
-                null;
-
-            if (this.vozEspanol) {
-                console.log(`[VORTEX VOZ] Voz seleccionada: ${this.vozEspanol.name} (${this.vozEspanol.lang})`);
-            } else {
-                console.warn('[VORTEX VOZ] No se encontró voz en español, se usará la voz por defecto.');
-            }
+            this.vocesDisponibles = speechSynthesis.getVoices();
+            this._restaurarVozGuardada();
+            this._poblarSelector();
         };
 
-        // Las voces pueden cargarse de forma asíncrona
         if (speechSynthesis.getVoices().length > 0) {
             cargarVoces();
         }
@@ -954,24 +1345,90 @@ const VortexVoz = {
     },
 
     /**
-     * Habla un texto en español con limpieza previa
+     * Restaura la voz guardada en localStorage o elige la mejor en español
+     */
+    _restaurarVozGuardada() {
+        const savedName = localStorage.getItem('vortex-voice-name');
+        if (savedName) {
+            const encontrada = this.vocesDisponibles.find(v => v.name === savedName);
+            if (encontrada) {
+                this.vozActual = encontrada;
+                console.log(`[VORTEX VOZ] Voz restaurada: ${this.vozActual.name}`);
+                return;
+            }
+        }
+        // Fallback: mejor voz en español
+        this.vozActual = this.vocesDisponibles.find(v => v.lang === 'es-MX') ||
+            this.vocesDisponibles.find(v => v.lang === 'es-ES') ||
+            this.vocesDisponibles.find(v => v.lang.startsWith('es')) ||
+            this.vocesDisponibles.find(v => v.lang === 'es') ||
+            this.vocesDisponibles[0] || null;
+
+        if (this.vozActual) {
+            console.log(`[VORTEX VOZ] Voz seleccionada: ${this.vozActual.name} (${this.vozActual.lang})`);
+        }
+    },
+
+    /**
+     * Llena el <select> con las voces disponibles
+     */
+    _poblarSelector() {
+        const select = document.getElementById('voice-selector');
+        if (!select) return;
+
+        const currentName = this.vozActual ? this.vozActual.name : '';
+        select.innerHTML = '';
+
+        this.vocesDisponibles.forEach(v => {
+            const option = document.createElement('option');
+            option.value = v.name;
+            const langName = v.lang ? v.lang.toUpperCase() : '??';
+            const label = v.name.replace(/^Microsoft |\(.+?\)/g, '').trim() || v.name;
+            option.textContent = `${label} [${langName}]`;
+            if (v.name === currentName) option.selected = true;
+            select.appendChild(option);
+        });
+
+        select.style.display = this.vocesDisponibles.length > 0 ? 'inline-block' : 'none';
+    },
+
+    /**
+     * Selecciona una voz por nombre y la guarda en localStorage
+     */
+    seleccionarVoz(nombreVoz) {
+        const encontrada = this.vocesDisponibles.find(v => v.name === nombreVoz);
+        if (encontrada) {
+            this.vozActual = encontrada;
+            localStorage.setItem('vortex-voice-name', nombreVoz);
+            console.log(`[VORTEX VOZ] Voz cambiada a: ${nombreVoz}`);
+            this.hablar(`Voz cambiada a ${encontrada.name.replace(/^Microsoft /, '').replace(/\(.+?\)/g, '').trim() || 'nueva'}`);
+            return true;
+        }
+        return false;
+    },
+
+    obtenerVoces() {
+        return this.vocesDisponibles;
+    },
+
+    /**
+     * Habla un texto con la voz seleccionada
      */
     hablar(texto) {
         if (!this.habilitada || !texto || !('speechSynthesis' in window)) return;
 
-        // Cancelar cualquier habla pendiente para respuesta inmediata
         speechSynthesis.cancel();
 
         const limpio = this._limpiarTexto(texto);
         const utterance = new SpeechSynthesisUtterance(limpio);
 
-        utterance.lang = 'es-MX';
+        utterance.lang = this.vozActual?.lang || 'es-MX';
         utterance.rate = 1.05;
         utterance.pitch = 0.95;
         utterance.volume = 1.0;
 
-        if (this.vozEspanol) {
-            utterance.voice = this.vozEspanol;
+        if (this.vozActual) {
+            utterance.voice = this.vozActual;
         }
 
         speechSynthesis.speak(utterance);
@@ -983,16 +1440,13 @@ const VortexVoz = {
 
     _limpiarTexto(texto) {
         return texto
-            .replace(/<[^>]*>?/gm, '') // Quitar HTML
-            .replace(/[\[\]]/g, ' ')   // Quitar corchetes
-            .replace(/[\n\r]+/g, '. ') // Nuevas líneas a puntos
-            .replace(/\s+/g, ' ')      // Espacios extra
-            .substring(0, 4000);       // Límite de seguridad
+            .replace(/<[^>]*>?/gm, '')
+            .replace(/[\[\]]/g, ' ')
+            .replace(/[\n\r]+/g, '. ')
+            .replace(/\s+/g, ' ')
+            .substring(0, 4000);
     },
 
-    /**
-     * Alterna activar/desactivar voz
-     */
     toggle() {
         this.habilitada = !this.habilitada;
         if (!this.habilitada) {
@@ -1004,27 +1458,53 @@ const VortexVoz = {
     },
 
     // ── Eventos tácticos ──
+    _frasesInicio: [
+        'VORTEX Security Intelligence online. Todos los sistemas nominales. Módulo de defensa activo. Esperando órdenes, operador.',
+        'Núcleo VORTEX operativo. Sensores calibrados. Defensa perimetral activa. Listo para asignación.',
+        'Sistema VORTEX iniciado. Redes neuronales estables. Protocolo de vigilancia habilitado. Operador, aguardando instrucciones.',
+    ],
+
+    _frasesAnalisis: [
+        'Iniciando barrido táctico de seguridad. Procesando registros en archivos de auditoría.',
+        'Ejecutando protocolo de análisis profundo. Examinando entradas de log en curso.',
+        'Desplegando motores de detección. Analizando tráfico y eventos de seguridad.',
+    ],
+
+    _frasesAlerta: [
+        '¡Alerta máxima! Se ha interceptado una amenaza activa en el perímetro.',
+        '¡Incidente de seguridad confirmado! Origen hostil detectado en la red.',
+        '¡Atención! Actividad maliciosa identificada. Tomando medidas de contención.',
+    ],
+
+    _frasesResumen: [
+        'Análisis completado. Generando informe de inteligencia para el operador.',
+        'Barrido finalizado. Complicando datos tácticos para presentación.',
+        'Evaluación de amenazas concluida. Preparando resumen ejecutivo.',
+    ],
+
+    _elegirFrase(frases) {
+        return frases[Math.floor(Math.random() * frases.length)];
+    },
 
     eventoInicioSistema() {
-        this.hablar(
-            'VORTEX Security Intelligence inicializado. ' +
-            'Todos los sistemas operativos. ' +
-            'Módulo de defensa activo. ' +
-            'Esperando instrucciones del operador.'
-        );
+        this.hablar(this._elegirFrase(this._frasesInicio));
     },
 
     eventoInicioAnalisis(totalLogs) {
+        const intro = this._elegirFrase(this._frasesAnalisis);
         this.hablar(
-            `Iniciando análisis táctico de ${totalLogs} registros de seguridad. ` +
-            'Activando motores de detección.'
+            `${intro} ` +
+            `Volumen de datos: ${totalLogs} registros por procesar.`
         );
     },
 
     eventoDeteccionCritica(tipoAtaque, ip) {
+        const intro = this._elegirFrase(this._frasesAlerta);
         this.hablar(
-            `¡Alerta crítica! Se ha detectado un ataque de tipo: ${tipoAtaque}. ` +
-            `Origen: ${ip}. Nivel de amenaza elevado.`
+            `${intro} ` +
+            `Vector de ataque: ${tipoAtaque}. ` +
+            `Origen hostil: ${ip}. ` +
+            `Prioridad de neutralización: inmediata.`
         );
     },
 
@@ -1033,18 +1513,26 @@ const VortexVoz = {
         const amenazas = resumen.total_amenazas || 0;
         const nivel = resumen.nivel_riesgo || 'BAJO';
         const score = resumen.score_riesgo || 0;
+        const intro = this._elegirFrase(this._frasesResumen);
+        const adverbio = nivel === 'ALTO' ? 'Crítico' : nivel === 'MEDIO' ? 'Moderado' : 'Bajo';
 
         this.hablar(
-            `Análisis completo. Se procesaron ${total} registros. ` +
-            `Se identificaron ${amenazas} amenazas potenciales. ` +
-            `Nivel de riesgo general: ${nivel}. ` +
-            `Puntuación de riesgo: ${score} de 100. ` +
-            (nivel === 'ALTO' ? 'Se recomienda acción inmediata.' : 'Sistema en monitoreo continuo.')
+            `${intro} ` +
+            `Registros analizados: ${total}. ` +
+            `Amenazas identificadas: ${amenazas}. ` +
+            `Nivel de riesgo: ${nivel}. ` +
+            `Índice de peligro: ${score} sobre 100. ` +
+            `Estatus: ${adverbio}. ` +
+            (nivel === 'ALTO' ? 'Se requiere intervención inmediata del operador.' : 'Protocolo de monitoreo continuo activo.')
         );
     },
 
     eventoReporteGenerado() {
-        this.hablar('Reporte de inteligencia generado exitosamente. Documento disponible para descarga.');
+        this.hablar(
+            'Documento de inteligencia generado. ' +
+            'Reporte táctico disponible para su revisión. ' +
+            'Incluye mapa de calor y análisis forense completo.'
+        );
     },
 };
 
@@ -1054,6 +1542,8 @@ const VortexVoz = {
 
 document.addEventListener('DOMContentLoaded', () => {
     VortexVoz.inicializar();
+    inicializarTheme();
+    inicializarDatepickers();
     ejecutarBootSequence();
     inicializarIngesta();
     actualizarEstadoIA();
@@ -1097,7 +1587,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Renderizar TODO de nuevo
         if (VORTEX.datos) renderizarDashboard(VORTEX.datos);
-        mostrarToast('💎 Análisis Filtrado: Top 20 Críticos', 'info');
+        mostrarToast('<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">diamond</span> Análisis Filtrado: Top 20 Críticos', 'info');
     });
 
     document.getElementById('btn-view-mode-full')?.addEventListener('click', () => {
@@ -1106,7 +1596,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-view-mode-full').classList.add('active');
 
         if (VORTEX.datos) renderizarDashboard(VORTEX.datos);
-        mostrarToast('📑 Auditoría Completa: 100% Data Visible', 'warning');
+        mostrarToast('<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">article</span> Auditoría Completa: 100% Data Visible', 'warning');
     });
 
     // Acciones de Inteligencia y PDF
@@ -1166,7 +1656,7 @@ async function exportarForense(formato) {
         const result = await eel.exportar_forense(formato)();
         const data = JSON.parse(result);
         if (data.exito) {
-            mostrarToast(`✅ Exportación exitosa: ${data.path}`, 'success');
+            mostrarToast(`<span class="mat-icon mat-icon-sm" style="vertical-align:middle;">check_circle</span> Exportación exitosa: ${data.path}`, 'success');
         } else if (!data.cancelado) {
             mostrarToast(`Error: ${data.error}`, 'error');
         }

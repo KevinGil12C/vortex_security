@@ -20,10 +20,57 @@ from dotenv import load_dotenv
 # Cargar configuración
 load_dotenv()
 
-# Configuración desde .env
-VOICE_ENABLED = os.getenv('VOICE_ENABLED', 'true').lower() == 'true'
-MODEL_NAME = os.getenv('MODEL_NAME', 'Qwen/Qwen2-1.5B-Instruct')
-LOG_PATH = os.getenv('LOG_PATH', 'writable/logs/security_audit.log')
+# ── Config desde vortex_config.json (sobreescribe .env) ──
+_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'vortex_config.json')
+_config = {}
+try:
+    with open(_CONFIG_PATH, 'r', encoding='utf-8') as f:
+        _config = json.load(f)
+    print(f"[VORTEX] Config cargada desde vortex_config.json")
+except Exception:
+    print(f"[VORTEX] No se encontró vortex_config.json, usando .env / defaults")
+
+def _cfg(key, env_key, default):
+    """Valor desde JSON → .env → default"""
+    if key in _config:
+        return _config[key]
+    return os.getenv(env_key, default)
+
+def _detectar_hardware():
+    """Detecta GPU/CPU y recomienda parámetros óptimos."""
+    info = {
+        'gpu_disponible': False,
+        'gpu_nombre': 'N/A',
+        'cpu_cores': os.cpu_count() or 1,
+        'ram_gb': 0,
+        'recomendacion': 'cpu'
+    }
+    import psutil
+    info['ram_gb'] = round(psutil.virtual_memory().total / (1024**3), 1)
+
+    try:
+        import torch
+        if torch.cuda.is_available():
+            info['gpu_disponible'] = True
+            info['gpu_nombre'] = torch.cuda.get_device_name(0)
+            info['recomendacion'] = 'cuda'
+            print(f"[VORTEX] GPU detectada: {info['gpu_nombre']}")
+        elif hasattr(torch, 'directml') and torch.directml.is_available():
+            info['gpu_disponible'] = True
+            info['gpu_nombre'] = 'DirectML'
+            info['recomendacion'] = 'directml'
+            print("[VORTEX] GPU DirectML detectada")
+        else:
+            print(f"[VORTEX] Sin GPU detectada. Usando CPU ({info['cpu_cores']} núcleos)")
+    except ImportError:
+        print("[VORTEX] torch no disponible, asumiendo CPU")
+
+    print(f"[VORTEX] RAM: {info['ram_gb']}GB | CPU: {info['cpu_cores']} núcleos")
+    return info
+
+VOICE_ENABLED = str(_cfg('voz_habilitada', 'VOICE_ENABLED', 'true')).lower() == 'true'
+MODEL_NAME = str(_cfg('modelo', 'MODEL_NAME', 'Qwen/Qwen2.5-1.5B-Instruct'))
+LOG_PATH = str(_cfg('ruta_logs', 'LOG_PATH', 'writable/logs/security_audit.log'))
 
 # Inicializar Eel
 eel.init('web')
@@ -43,6 +90,7 @@ estado_global = {
 # Instancias globales inicializadas lazy
 _voz = None
 _ia = None
+_hw_cache = None
 
 
 def obtener_voz():
@@ -88,14 +136,14 @@ def analizar_logs(texto_logs=None, fecha_inicio=None, fecha_fin=None):
 
         logs = resultado_parser.get('logs', [])
         
-        # Filtro de Ventana Táctica
+        # Filtro de Ventana Táctica (acepta T o espacio como separador)
         if fecha_inicio_str := fecha_inicio:
-            try: dt_inicio = datetime.strptime(fecha_inicio_str[:16], '%Y-%m-%dT%H:%M')
+            try: dt_inicio = datetime.strptime(fecha_inicio_str[:16].replace('T', ' '), '%Y-%m-%d %H:%M')
             except ValueError: dt_inicio = None
         else: dt_inicio = None
             
         if fecha_fin_str := fecha_fin:
-            try: dt_fin = datetime.strptime(fecha_fin_str[:16], '%Y-%m-%dT%H:%M')
+            try: dt_fin = datetime.strptime(fecha_fin_str[:16].replace('T', ' '), '%Y-%m-%d %H:%M')
             except ValueError: dt_fin = None
         else: dt_fin = None
 
@@ -277,6 +325,38 @@ def generar_reporte_ia(usar_reglas=False):
 
 
 @eel.expose
+def preguntar_ia(mensaje):
+    """Envía un mensaje a la IA y obtiene respuesta para el chat Jarvis."""
+    if not mensaje or not mensaje.strip():
+        return json.dumps({'respuesta': None, 'error': 'Mensaje vacío'}, ensure_ascii=False)
+
+    try:
+        ia = obtener_ia()
+        datos = estado_global.get('analisis', None)
+        respuesta = ia.generar_chat(mensaje, datos_analisis=datos)
+
+        if respuesta:
+            return json.dumps({
+                'respuesta': respuesta,
+                'modelo': ia.modelo_nombre,
+                'disponible': True
+            }, ensure_ascii=False)
+        else:
+            return json.dumps({
+                'respuesta': None,
+                'disponible': False,
+                'error': 'Modelo no disponible o no cargado'
+            }, ensure_ascii=False)
+
+    except Exception as e:
+        return json.dumps({
+            'respuesta': None,
+            'error': str(e),
+            'disponible': False
+        }, ensure_ascii=False)
+
+
+@eel.expose
 def cargar_modelo_ia():
     """Carga el modelo de IA (puede demorar)."""
     try:
@@ -291,6 +371,13 @@ def cargar_modelo_ia():
     except Exception as e:
         return json.dumps({'error': str(e)}, ensure_ascii=False)
 
+
+@eel.expose
+def obtener_hardware():
+    global _hw_cache
+    if _hw_cache is None:
+        _hw_cache = _detectar_hardware()
+    return json.dumps(_hw_cache)
 
 @eel.expose
 def obtener_estado():
@@ -455,9 +542,22 @@ def main():
     print("*  Sistema SIEM/IDS con Inteligencia Artificial       *")
     print("********************************************************")
     print()
+    global _hw_cache
+    _hw_cache = _detectar_hardware()
+
+    if not _hw_cache['gpu_disponible']:
+        print(f"[VORTEX] Modo CPU detectado - reduciendo tokens para rendimiento óptimo")
+        _config['max_tokens'] = min(_config.get('max_tokens', 300), 300)
+        _config['max_tokens_chat'] = min(_config.get('max_tokens_chat', 200), 200)
+        _config['max_tokens_reporte'] = min(_config.get('max_tokens_reporte', 600), 600)
+    else:
+        print(f"[VORTEX] GPU disponible - usando tokens completos para mejor calidad")
+
     print(f"[+] Configuración cargada:")
     print(f"    Voz: {'Habilitada' if VOICE_ENABLED else 'Deshabilitada'}")
     print(f"    Modelo IA: {MODEL_NAME}")
+    print(f"    GPU: {_hw_cache['gpu_nombre']}")
+    print(f"    Tokens: Chat={_config.get('max_tokens_chat',200)} | Reporte={_config.get('max_tokens_reporte',600)}")
     print(f"    Ruta logs: {LOG_PATH}")
     print()
 

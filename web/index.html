@@ -16,9 +16,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+    <!-- Flatpickr - Calendario Visual -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Material Symbols (Google Icons) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 
     <!-- Estilos -->
     <link rel="stylesheet" href="style.css">
@@ -26,16 +33,27 @@
 
 <body>
 
+    <!-- Fondo con gradiente animado -->
+    <div class="gradient-bg"></div>
+
     <!-- ═══════════════════════════════════════════════════════
          PANTALLA DE ARRANQUE (BOOT)
          ═══════════════════════════════════════════════════════ -->
     <div id="boot-screen">
-        <div class="boot-logo">VORTEX</div>
-        <div class="boot-terminal" id="boot-terminal">
-            <!-- Las líneas se agregan dinámicamente -->
-        </div>
-        <div class="boot-progress">
-            <div class="boot-progress-bar" id="boot-progress-bar"></div>
+        <canvas id="boot-canvas"></canvas>
+        <div class="boot-content">
+            <div class="boot-logo" id="boot-logo-text">VORTEX</div>
+            <div class="boot-subtitle">SECURITY INTELLIGENCE // TACTICAL ANALYSIS CORE</div>
+            <div class="boot-terminal" id="boot-terminal">
+                <!-- Las líneas se agregan dinámicamente -->
+            </div>
+            <div class="boot-loader">
+                <div class="boot-ring"></div>
+                <div class="boot-progress">
+                    <div class="boot-progress-bar" id="boot-progress-bar"></div>
+                </div>
+                <span class="boot-pct" id="boot-pct">0%</span>
+            </div>
         </div>
     </div>
 
@@ -44,10 +62,14 @@
          ═══════════════════════════════════════════════════════ -->
     <header class="header" id="main-header" style="display:none;">
         <div class="header-left">
-            <span class="header-logo">◆ VORTEX</span>
+            <span class="header-logo"><span class="mat-icon" style="font-size:1.1rem;vertical-align:middle;">radar</span> VORTEX</span>
             <span class="header-subtitle">Security Intelligence // Tactical Analysis Core v1.0</span>
         </div>
         <div class="header-right">
+            <button class="theme-toggle-btn" id="theme-toggle" title="Cambiar modo claro/oscuro">
+                <span class="mat-icon" id="theme-toggle-icon">dark_mode</span>
+                <span id="theme-toggle-label">OSCURO</span>
+            </button>
             <div class="header-status">
                 <div class="status-dot"></div>
                 <span id="status-text">SISTEMA OPERATIVO</span>
@@ -55,8 +77,11 @@
             <label class="toggle-switch" title="Toggle voz">
                 <input type="checkbox" id="voice-toggle" checked>
                 <div class="toggle-slider"></div>
-                <span>🔊 VOZ</span>
+                <span class="mat-icon" style="font-size:0.9rem;">volume_up</span><span>VOZ</span>
             </label>
+            <select class="voice-selector" id="voice-selector" title="Seleccionar voz">
+                <option value="">Cargando voces...</option>
+            </select>
             <span class="header-status" id="clock-display"></span>
         </div>
     </header>
@@ -71,42 +96,42 @@
             <div class="section-title">Ingesta de Logs de Seguridad</div>
 
             <div class="drop-zone" id="drop-zone">
-                <span class="drop-zone-icon">📂</span>
+                <span class="drop-zone-icon mat-icon" style="font-size:2rem;">folder_open</span>
                 Arrastra un archivo de log aquí o haz clic para seleccionar
             </div>
 
             <div class="ingest-controls">
                 <div class="file-input-wrapper">
-                    <button class="btn btn-blue btn-sm" id="btn-load-file">📁 Cargar Archivo</button>
+                    <button class="btn btn-blue btn-sm" id="btn-load-file"><span class="mat-icon mat-icon-sm">folder</span> Cargar Archivo</button>
                     <input type="file" id="file-input" accept=".log,.txt,.csv">
                 </div>
                 <button class="btn btn-blue btn-sm" id="btn-load-default" title="Cargar desde ruta configurada en .env">
-                    📥 Cargar desde .env
+                    <span class="mat-icon mat-icon-sm">download</span> Cargar desde .env
                 </button>
                 <button class="btn btn-blue btn-sm" id="btn-load-sample">
-                    📋 Cargar Log de Ejemplo
+                    <span class="mat-icon mat-icon-sm">description</span> Cargar Log de Ejemplo
                 </button>
                 <div style="flex:1;"></div>
                 <button class="btn btn-primary" id="btn-analyze" disabled>
-                    ⚡ Iniciar Análisis
+                    <span class="mat-icon mat-icon-sm">bolt</span> Iniciar Análisis
                 </button>
             </div>
 
             <textarea class="log-textarea" id="log-textarea"
                 placeholder="Pega tus logs de seguridad aquí...&#10;&#10;Formato: [YYYY-MM-DD HH:MM:SS] [SEVERITY] Type: TYPE | IP: IP | URI: /ruta | Method: GET/POST | UA: user-agent"></textarea>
 
-            <!-- Filtro de Fechas -->
-            <div class="date-filter-panel" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; padding: 10px; background: rgba(0, 212, 255, 0.05); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 4px;">
-                <span style="color:var(--neon-blue); font-size:12px; font-weight:bold;">🕒 VENTANA TÁCTICA:</span>
-                <input type="datetime-local" id="filter-date-start" class="tactical-input" style="flex:1; min-width:180px;">
-                <span style="color:var(--text-color);">a</span>
-                <input type="datetime-local" id="filter-date-end" class="tactical-input" style="flex:1; min-width:180px;">
-                <button class="btn btn-sm btn-ghost" id="btn-detect-dates" title="Escanear logs y extraer primera/última fecha">🔍 Auto-Detectar</button>
+            <!-- Filtro de Fechas con Calendario Visual -->
+            <div class="date-filter-panel" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; padding: 10px; background: var(--border-subtle); border: 1px solid var(--border-color); border-radius: var(--radius);">
+                <span style="color:var(--blue-electric); font-size:12px; font-weight:bold;"><span class="mat-icon mat-icon-sm" style="font-size:1rem;">schedule</span> VENTANA TÁCTICA:</span>
+                <input type="text" id="filter-date-start" class="tactical-input vortex-datepicker" placeholder="Inicio..." style="flex:1; min-width:180px;" data-input>
+                <span style="color:var(--text-secondary);">→</span>
+                <input type="text" id="filter-date-end" class="tactical-input vortex-datepicker" placeholder="Fin..." style="flex:1; min-width:180px;" data-input>
+                <button class="btn btn-sm btn-ghost" id="btn-detect-dates" title="Escanear logs y extraer primera/última fecha"><span class="mat-icon mat-icon-sm" style="vertical-align:middle;">search</span> Auto-Detectar</button>
             </div>
 
             <!-- Progreso de análisis -->
             <div class="analysis-progress" id="analysis-progress">
-                <p class="progress-text" id="progress-text">⚡ Analizando logs...</p>
+                <p class="progress-text" id="progress-text"><span class="mat-icon mat-icon-sm" style="vertical-align:middle;">bolt</span> Analizando logs...</p>
                 <div class="progress-bar-container">
                     <div class="progress-bar-fill"></div>
                 </div>
@@ -133,10 +158,10 @@
             </div>
             
             <div class="selector-container">
-                <span class="selector-label">🛡️ MODO DE ANÁLISIS:</span>
+                <span class="selector-label"><span class="mat-icon mat-icon-sm">shield</span> MODO DE ANÁLISIS:</span>
                 <div class="view-mode-buttons">
-                    <button class="btn-mode active" id="btn-view-mode-top">💎 RESUMEN TOP 20</button>
-                    <button class="btn-mode" id="btn-view-mode-full">📑 AUDITORÍA COMPLETA</button>
+                    <button class="btn-mode active" id="btn-view-mode-top"><span class="mat-icon mat-icon-sm">diamond</span> RESUMEN TOP 20</button>
+                    <button class="btn-mode" id="btn-view-mode-full"><span class="mat-icon mat-icon-sm">article</span> AUDITORÍA COMPLETA</button>
                 </div>
             </div>
         </section>
@@ -146,10 +171,12 @@
             <div class="metric-card">
                 <div class="metric-label">Total Logs</div>
                 <div class="metric-value green" id="m-total-logs">0</div>
+                <div class="metric-sub" id="m-total-logs-sub"></div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Amenazas</div>
                 <div class="metric-value red" id="m-amenazas">0</div>
+                <div class="metric-sub" id="m-amenazas-sub"></div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Score Riesgo</div>
@@ -159,14 +186,17 @@
             <div class="metric-card">
                 <div class="metric-label">IPs Únicas</div>
                 <div class="metric-value blue" id="m-ips">0</div>
+                <div class="metric-sub" id="m-ips-sub"></div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">IPs Baneadas</div>
                 <div class="metric-value red" id="m-baneadas">0</div>
+                <div class="metric-sub" id="m-baneadas-sub"></div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Anomalías IA</div>
                 <div class="metric-value" id="m-anomalias" style="color:var(--purple-accent);">0</div>
+                <div class="metric-sub" id="m-anomalias-sub"></div>
             </div>
         </section>
 
@@ -178,8 +208,8 @@
                 <!-- Indicador de riesgo -->
                 <div class="panel" style="margin-bottom:16px;">
                     <div class="panel-header">
-                        <span class="panel-title">🎯 Nivel de Riesgo</span>
-                        <button class="btn-voice-panel" data-target="risk-section" title="Leer esta sección">🔊</button>
+                        <span class="panel-title"><span class="mat-icon mat-icon-sm">gps_fixed</span> Nivel de Riesgo</span>
+                        <button class="btn-voice-panel" data-target="risk-section" title="Leer esta sección"><span class="mat-icon" style="font-size:1rem;">volume_up</span></button>
                     </div>
                     <div class="panel-body" id="risk-section">
                         <div class="risk-indicator">
@@ -196,21 +226,24 @@
                 <!-- Top IPs -->
                 <div class="panel">
                     <div class="panel-header">
-                        <span class="panel-title">🛡️ IPs Analizadas</span>
+                        <span class="panel-title"><span class="mat-icon mat-icon-sm">shield</span> IPs Analizadas</span>
                         <div class="panel-actions">
                             <button class="btn-voice-panel" data-target="table-ips" title="Leer esta sección">🔊</button>
                         </div>
                     </div>
-                    <div class="panel-search">
-                        <input type="text" id="search-ips" placeholder="🔍 Filtrar IP..." class="tactical-input">
+                    <div class="panel-search" style="position:relative;">
+                        <span class="mat-icon mat-icon-sm" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-dim);pointer-events:none;font-size:1rem;">search</span>
+                        <input type="text" id="search-ips" placeholder="Filtrar IP..." class="tactical-input" style="padding-left:30px;">
                     </div>
                     <div class="panel-body scrollable-table-container">
                         <table class="data-table" id="table-ips">
                             <thead>
                                 <tr>
                                     <th>IP Address</th>
+                                    <th>País</th>
                                     <th>Req</th>
                                     <th>Score</th>
+                                    <th>Tipos</th>
                                     <th>Estado</th>
                                 </tr>
                             </thead>
@@ -227,8 +260,8 @@
             <div>
                 <div class="panel">
                     <div class="panel-header">
-                        <span class="panel-title">🌍 Ojo de Dios - Mapa de Ataques</span>
-                        <button class="btn btn-sm btn-primary" id="btn-refresh-map">⟳ Actualizar</button>
+                        <span class="panel-title"><span class="mat-icon mat-icon-sm">public</span> Ojo de Dios - Mapa de Ataques</span>
+                        <button class="btn btn-sm btn-primary" id="btn-refresh-map"><span class="mat-icon mat-icon-sm">refresh</span> Actualizar</button>
                     </div>
                     <div class="map-container">
                         <div class="map-overlay" id="map-overlay">
@@ -252,7 +285,7 @@
                 <!-- Consola en vivo -->
                 <div class="panel" style="margin-top:16px;">
                     <div class="panel-header">
-                        <span class="panel-title">📡 Consola en Vivo</span>
+                        <span class="panel-title"><span class="mat-icon mat-icon-sm">terminal</span> Consola en Vivo</span>
                         <button class="btn btn-sm btn-primary" id="btn-clear-console">Limpiar</button>
                     </div>
                     <div class="live-console" id="live-console">
@@ -271,9 +304,9 @@
                 <!-- Tipos de ataque -->
                 <div class="panel" style="margin-bottom:16px;">
                     <div class="panel-header">
-                        <span class="panel-title">🚨 Tipos de Ataque</span>
+                        <span class="panel-title"><span class="mat-icon mat-icon-sm">warning</span> Tipos de Ataque</span>
                         <button class="btn-voice-panel" data-target="table-attack-types"
-                            title="Leer esta sección">🔊</button>
+                            title="Leer esta sección"><span class="mat-icon" style="font-size:1rem;">volume_up</span></button>
                     </div>
                     <div class="panel-body">
                         <table class="data-table" id="table-attack-types">
@@ -281,6 +314,8 @@
                                 <tr>
                                     <th>Tipo</th>
                                     <th>Cantidad</th>
+                                    <th>%</th>
+                                    <th>Severidad</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -291,20 +326,23 @@
                 <!-- Top URIs -->
                 <div class="panel" style="margin-bottom:16px;">
                     <div class="panel-header">
-                        <span class="panel-title">🔗 URIs Monitoreadas</span>
+                        <span class="panel-title"><span class="mat-icon mat-icon-sm">link</span> URIs Monitoreadas</span>
                         <div class="panel-actions">
                             <button class="btn-voice-panel" data-target="table-uris" title="Leer esta sección">🔊</button>
                         </div>
                     </div>
-                    <div class="panel-search">
-                        <input type="text" id="search-uris" placeholder="🔍 Filtrar URI..." class="tactical-input">
+                    <div class="panel-search" style="position:relative;">
+                        <span class="mat-icon mat-icon-sm" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-dim);pointer-events:none;font-size:1rem;">search</span>
+                        <input type="text" id="search-uris" placeholder="Filtrar URI..." class="tactical-input" style="padding-left:30px;">
                     </div>
                     <div class="panel-body scrollable-table-container">
                         <table class="data-table" id="table-uris">
                             <thead>
                                 <tr>
                                     <th>Ruta / URI</th>
-                                    <th>Impacto</th>
+                                    <th>Accesos</th>
+                                    <th>Severidad</th>
+                                    <th>Ataques</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -318,7 +356,7 @@
                 <!-- Acciones -->
                 <div class="panel">
                     <div class="panel-header">
-                        <span class="panel-title">⚙️ Acciones</span>
+                        <span class="panel-title"><span class="mat-icon mat-icon-sm">settings</span> Acciones</span>
                     </div>
                     <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
                         <!-- IA Status -->
@@ -330,28 +368,28 @@
 
                         <button class="btn btn-primary" id="btn-generate-pdf" style="width:100%;" disabled
                             title="Generar y elegir donde guardar el reporte PDF">
-                            📄 Exportar Reporte PDF
+                            <span class="mat-icon mat-icon-sm">picture_as_pdf</span> Exportar Reporte PDF
                         </button>
                         
                         <div class="export-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:5px;">
-                            <button class="btn btn-sm btn-ghost" id="btn-export-csv" disabled title="Exportar IPs a CSV para SIEM">📂 CSV Forense</button>
-                            <button class="btn btn-sm btn-ghost" id="btn-export-json" disabled title="Exportar análisis completo a JSON">📂 JSON Crudo</button>
+                            <button class="btn btn-sm btn-ghost" id="btn-export-csv" disabled title="Exportar IPs a CSV para SIEM"><span class="mat-icon mat-icon-sm">table</span> CSV Forense</button>
+                            <button class="btn btn-sm btn-ghost" id="btn-export-json" disabled title="Exportar análisis completo a JSON"><span class="mat-icon mat-icon-sm">data_object</span> JSON Crudo</button>
                         </div>
 
                         <button class="btn btn-blue" id="btn-generate-rules" style="width:100%; margin-top:10px;" disabled
                             title="Informe rápido basado en patrones de reglas">
-                            🤖 Informe Rápido (Reglas)
+                            <span class="mat-icon mat-icon-sm">rule</span> Informe Rápido (Reglas)
                         </button>
                         <button class="btn btn-blue" id="btn-generate-ia" style="width:100%;" disabled
                             title="Informe profundo usando IA Local (Lento)">
-                            ✨ Informe Profundo (IA)
+                            <span class="mat-icon mat-icon-sm">auto_awesome</span> Informe Profundo (IA)
                         </button>
                         <button class="btn btn-ghost" id="btn-voice-briefing" style="width:100%; margin-top:5px;" disabled
                             title="Escuchar resumen táctico generado">
-                            🔊 Briefing Narrado (Voz)
+                            <span class="mat-icon mat-icon-sm">record_voice_over</span> Briefing Narrado (Voz)
                         </button>
                         <button class="btn btn-blue" id="btn-open-pdf" style="width:100%; border-top:1px solid rgba(0,255,159,0.2); padding-top:10px; margin-top:10px;" disabled>
-                            📂 Abrir Último PDF
+                            <span class="mat-icon mat-icon-sm">folder_open</span> Abrir Último PDF
                         </button>
                     </div>
                 </div>
@@ -362,7 +400,7 @@
         <section class="charts-grid" id="charts-section" style="display:none;">
             <div class="panel">
                 <div class="panel-header">
-                    <span class="panel-title">📊 Ataques por Tipo</span>
+                    <span class="panel-title"><span class="mat-icon mat-icon-sm">bar_chart</span> Ataques por Tipo</span>
                 </div>
                 <div class="chart-container">
                     <canvas id="chart-attack-types"></canvas>
@@ -370,7 +408,7 @@
             </div>
             <div class="panel">
                 <div class="panel-header">
-                    <span class="panel-title">📈 Timeline de Eventos</span>
+                    <span class="panel-title"><span class="mat-icon mat-icon-sm">show_chart</span> Timeline de Eventos</span>
                 </div>
                 <div class="chart-container">
                     <canvas id="chart-timeline"></canvas>
@@ -378,7 +416,7 @@
             </div>
             <div class="panel">
                 <div class="panel-header">
-                    <span class="panel-title">🖥️ Sistemas Operativos</span>
+                    <span class="panel-title"><span class="mat-icon mat-icon-sm">desktop_windows</span> Sistemas Operativos</span>
                 </div>
                 <div class="chart-container">
                     <canvas id="chart-os"></canvas>
@@ -386,7 +424,7 @@
             </div>
             <div class="panel">
                 <div class="panel-header">
-                    <span class="panel-title">🌐 Navegadores / Clientes</span>
+                    <span class="panel-title"><span class="mat-icon mat-icon-sm">language</span> Navegadores / Clientes</span>
                 </div>
                 <div class="chart-container">
                     <canvas id="chart-browsers"></canvas>
@@ -397,8 +435,8 @@
         <!-- ── INFORME IA ── -->
         <section class="panel" id="ia-section" style="display:none;">
             <div class="panel-header">
-                <span class="panel-title">🤖 Informe de Inteligencia Artificial</span>
-                <button class="btn-voice-panel" data-target="ia-report-content" title="Leer esta sección">🔊</button>
+                <span class="panel-title"><span class="mat-icon mat-icon-sm">smart_toy</span> Informe de Inteligencia Artificial</span>
+                <button class="btn-voice-panel" data-target="ia-report-content" title="Leer esta sección"><span class="mat-icon" style="font-size:1rem;">volume_up</span></button>
             </div>
             <div class="panel-body">
                 <div class="ia-report" id="ia-report-content">
@@ -410,27 +448,62 @@
         <!-- ── PERFILES DE ATACANTES ── -->
         <section class="panel" id="attackers-section" style="display:none;">
             <div class="panel-header">
-                <span class="panel-title">🎯 Perfiles de Atacantes</span>
-                <button class="btn-voice-panel" data-target="table-attackers" title="Leer esta sección">🔊</button>
+                <span class="panel-title"><span class="mat-icon mat-icon-sm">trackpad</span> Perfiles de Atacantes</span>
+                <button class="btn-voice-panel" data-target="table-attackers" title="Leer esta sección"><span class="mat-icon" style="font-size:1rem;">volume_up</span></button>
             </div>
             <div class="panel-body">
-                <table class="data-table" id="table-attackers">
-                    <thead>
-                        <tr>
-                            <th>IP</th>
-                            <th>Score</th>
-                            <th>Requests</th>
-                            <th>Clasificación</th>
-                            <th>Tipos</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
+                        <table class="data-table" id="table-attackers">
+                            <thead>
+                                <tr>
+                                    <th>IP</th>
+                                    <th>País</th>
+                                    <th>Score</th>
+                                    <th>Req</th>
+                                    <th>Clasificación</th>
+                                    <th>Tipos</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
                     <tbody></tbody>
                 </table>
             </div>
         </section>
 
     </main>
+
+    <!-- ═══════════════════════════════════════════════════════
+          VORTEX CHAT ASSISTANT
+          ═══════════════════════════════════════════════════════ -->
+    <div class="vortex-chat-fab" id="vortex-chat-fab" title="VORTEX Assistant">
+        <span class="mat-icon">smart_toy</span>
+    </div>
+
+    <div class="vortex-chat-panel" id="vortex-chat-panel">
+        <div class="vortex-chat-header">
+            <span class="mat-icon" style="font-size:1.2rem;">smart_toy</span>
+            <span>VORTEX · Asistente Táctico</span>
+            <button class="vortex-chat-close" id="vortex-chat-close"><span class="mat-icon">close</span></button>
+        </div>
+        <div class="vortex-chat-messages" id="vortex-chat-messages">
+            <div class="vortex-chat-msg vortex-chat-bot">
+                <span class="mat-icon mat-icon-sm" style="color:var(--green-neon);">radar</span>
+                <div class="vortex-chat-msg-content">Soy VORTEX, su asistente táctico de seguridad. Puedo ayudarle a analizar amenazas, generar informes o responder preguntas sobre el sistema. ¿En qué puedo ayudarle, operador?</div>
+            </div>
+        </div>
+        <div class="vortex-chat-input-area">
+            <button class="vortex-chat-mic-btn" id="vortex-chat-mic-btn" title="Activar comando de voz">
+                <span class="mat-icon">mic</span>
+            </button>
+            <input type="text" class="vortex-chat-input" id="vortex-chat-input" placeholder="Escribe un comando o pregunta..." autocomplete="off">
+            <button class="vortex-chat-send-btn" id="vortex-chat-send-btn" title="Enviar">
+                <span class="mat-icon">send</span>
+            </button>
+        </div>
+        <div class="vortex-chat-status" id="vortex-chat-status">
+            <span class="vortex-chat-status-dot"></span>
+            <span id="vortex-chat-status-text">Sistema listo. Voz inactiva.</span>
+        </div>
+    </div>
 
     <!-- ═══════════════════════════════════════════════════════
          FOOTER
@@ -448,6 +521,7 @@
     <script src="app.js"></script>
     <script src="charts.js"></script>
     <script src="map.js"></script>
+    <script src="vortex-chat.js"></script>
 
 </body>
 
